@@ -1,0 +1,12 @@
+{
+  "client_id": "https://YOUR-DOMAIN/bingers-extension/client-metadata.json",
+  "client_name": "Cue for Bingers",
+  "client_uri": "https://YOUR-DOMAIN/bingers-extension/",
+  "logo_uri": "https://YOUR-DOMAIN/bingers-extension/icon128.png",
+  "policy_uri": "https://YOUR-DOMAIN/bingers-extension/privacy.html",
+  "redirect_uris": ["https://YOUR_EXTENSION_ID.chromiumapp.org/"],
+  "grant_types": ["authorization_code", "refresh_token"],
+  "response_types": ["code"],
+  "token_endpoint_auth_method": "none",
+  "scope": "library:read library:write offline_access"
+}

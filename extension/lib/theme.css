@@ -1,0 +1,24 @@
+/* Bingers theme tokens: the single place to change the extension's look.
+   --bg is Bingers' own brand color (theme-color #0C0B0B on bingers.app).
+   The rest is a warm monochrome built to sit on it. If you want the app's exact
+   accent color, change --accent (and --accent-ink for text on top of it). The page badge in
+   content/content.js mirrors these values in its THEME block. */
+:root {
+  --bg: #0c0b0b;
+  --panel: #161414;
+  --panel-2: #1f1c1b;
+  --line: #2c2826;
+  --text: #f6f3f0;
+  --muted: #9d9691;
+  --accent: #f6f3f0;       /* primary buttons, selected tab, focus ring */
+  --accent-ink: #0c0b0b;   /* text on --accent */
+  --ok: #5fd38d;
+  --ok-line: #24452f;
+  --err: #ff8a80;
+  --err-bg: #2a1614;
+  --err-line: #5a2622;
+  --radius: 12px;
+  --pill: 999px;
+  --font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color-scheme: dark;
+}

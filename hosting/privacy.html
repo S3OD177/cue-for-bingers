@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cue for Bingers · Privacy Policy</title>
+<style>
+  body { font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 20px; color: #1d1b22; }
+  h1 { font-size: 28px; } h2 { font-size: 18px; margin-top: 28px; }
+  code { background: #f3f0f8; padding: 1px 5px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<h1>Cue for Bingers: Privacy Policy</h1>
+<p><em>Last updated: November 15, 2026</em></p>
+
+<p>Cue for Bingers is an independent browser extension, not made by or affiliated with Bingers, that connects to your account on <a href="https://bingers.app">Bingers</a>, a TV and movie tracker. This page explains what the extension handles and where it goes.</p>
+
+<h2>What the extension stores</h2>
+<ul>
+  <li><strong>Your sign-in credential.</strong> Either an OAuth access/refresh token issued by Bingers, or a personal access token you paste in. It is stored only in your browser's extension storage (<code>chrome.storage.local</code>) and is sent only to <code>api.bingers.app</code>.</li>
+  <li><strong>Your basic Bingers profile</strong> (name/handle if Bingers returns it), to show which account is connected.</li>
+  <li><strong>Settings</strong>, such as whether the badge appears on IMDb and TMDB pages.</li>
+</ul>
+
+<h2>What the extension sends, and to whom</h2>
+<ul>
+  <li>All requests go directly from your browser to the Bingers API (<code>api.bingers.app</code>). There is no other server in between.</li>
+  <li>When the page badge is on and you open a title page on IMDb or TMDB, the extension sends that page's title ID (for example <code>imdb:tt0903747</code>) to Bingers to look up your status. It does not read or send anything else from the page, and it does not record your browsing history.</li>
+  <li>When you use the extension to search, follow, rate, or mark something watched, that request is sent to Bingers and saved to your Bingers account.</li>
+  <li><strong>Auto-tracking (only on sites you turn on).</strong> While a video plays on a site you approved, the extension reads the video's progress and the title information the page publishes (page title, the media title shown in Chrome's media controls, and structured data). It sends the show or movie name to Bingers to find the title, and sends playback start, pause and finish events (title, season, episode and percent watched) so Bingers can mark it watched. It does not record the page address, your browsing on other sites, or anything you type.</li>
+</ul>
+
+<h2>What the extension does not do</h2>
+<ul>
+  <li>No analytics, tracking, advertising, or third-party scripts.</li>
+  <li>No selling or sharing of data with anyone other than Bingers, which you're already signed in to.</li>
+  <li>No access to any website other than IMDb, TMDB (to show the badge), the Bingers API, and streaming sites you explicitly approve for auto-tracking. If you turn on "Auto-track on all websites", the same video-only reading happens on any site where a long video plays. You can skip any site, or turn the option off, at any time.</li>
+</ul>
+
+<h2>Your control</h2>
+<p>Sign out from the extension's settings page to delete the stored credential. Uninstalling the extension removes all of its stored data. You can also revoke tokens at any time at <a href="https://bingers.app/integrations">bingers.app/integrations</a>. How Bingers itself handles your account data is covered by Bingers' own privacy policy.</p>
+
+<h2>Contact</h2>
+<p>Questions: <a href="mailto:YOUR-SUPPORT-EMAIL">YOUR-SUPPORT-EMAIL</a></p>
+</body>
+</html>

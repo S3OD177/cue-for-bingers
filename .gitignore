@@ -1,0 +1,21 @@
+# Packaged builds
+*.zip
+*.crx
+*.pem
+
+# Local test video (make your own, see CLAUDE.md)
+tests/e2e/site/*.mp4
+
+# Python / Node
+__pycache__/
+*.pyc
+node_modules/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Claude Code local settings
+.claude/settings.local.json
