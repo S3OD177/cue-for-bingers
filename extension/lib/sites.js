@@ -11,6 +11,7 @@ export const POPULAR_SITES = [
   { name: "Crunchyroll", origin: "https://www.crunchyroll.com/*" },
   { name: "Hulu", origin: "https://www.hulu.com/*" },
   { name: "Plex", origin: "https://app.plex.tv/*" },
+  { name: "Shooflive", origin: "https://p4.shooflive.sbs/*" }, // added at the owner's request (user report)
 ];
 
 // Origins the extension holds for its own reasons; never treated as "tracked sites".

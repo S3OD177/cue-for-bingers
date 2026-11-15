@@ -42,11 +42,9 @@ async function reportToDeveloper(subject, lines, button) {
     return false;
   }
 }
-// Verified = a streaming site Cue has been tested on (www. or not).
+// Known = on Cue's streaming-site list (www. or not).
 const bareHost = (o) => String(o).replace(/^https?:\/\//, "").replace(/\/\*$/, "").replace(/^www\./, "");
 const isKnownSite = (pattern) => POPULAR_SITES.some((s) => bareHost(s.origin) === bareHost(pattern));
-const verifiedBadge = (pattern) =>
-  isKnownSite(pattern) ? el("span", { class: "verified", title: "Cue has been tested on this site" }, "✓ Verified") : null;
 
 const app = document.getElementById("app");
 const who = document.getElementById("who");
@@ -363,7 +361,7 @@ async function renderLive(container) {
       renderLive(container);
     };
     parts.push(el("div", { class: "site-row" },
-      el("span", {}, el("span", { class: "live-dot" }), `Auto-tracking on ${host}`, verifiedBadge(pattern)),
+      el("span", {}, el("span", { class: "live-dot" }), `Auto-tracking on ${host}`),
       el("button", { class: "link small", onclick: turnOff }, everywhere ? "Skip this site" : "Turn off")
     ));
     // The video may play in an embedded player from another host, which needs its own approval.
@@ -409,7 +407,7 @@ async function renderLive(container) {
       toast(`Auto-tracking on ${host} again`, "ok");
       renderLive(container);
     });
-    parts.push(el("div", { class: "site-row" }, el("span", { class: "muted" }, `Skipped on ${host}`, verifiedBadge(pattern)), b));
+    parts.push(el("div", { class: "site-row" }, el("span", { class: "muted" }, `Skipped on ${host}`), b));
   } else {
     // Chrome shows its own approval prompt. The popup may close while it's open; the
     // service worker finishes the setup either way.
@@ -425,7 +423,7 @@ async function renderLive(container) {
     const players = await pagePlayerOrigins(tab.id);
     const b = el("button", { class: "btn primary", onclick: turnOn([pattern, ...players.filter((o) => o !== pattern)], `Auto-tracking on ${host}. Play something!`) }, `▶ Track ${host}`);
     const all = el("button", { class: "link small", onclick: turnOn(ALL_SITES, "Auto-tracking on all websites") }, "or every website");
-    parts.push(el("div", { class: "site-row" }, el("span", { class: "muted" }, "Mark what you watch here automatically?", verifiedBadge(pattern)), el("span", {}, b, " ", all)));
+    parts.push(el("div", { class: "site-row" }, el("span", { class: "muted" }, "Mark what you watch here automatically?"), el("span", {}, b, " ", all)));
   }
   container.replaceChildren(...parts);
 }
