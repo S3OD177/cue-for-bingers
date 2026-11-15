@@ -133,9 +133,15 @@
     session.lastTime = video.currentTime;
     // Require some genuine watching so a seek to the end doesn't mark anything.
     const enoughWatched = session.playedSeconds >= Math.min(300, video.duration * 0.15);
-    if (!session.watchedSent && session.startedSent && enoughWatched && progressOf(video) >= settings.threshold) {
-      session.watchedSent = true;
-      report("watched");
+    if (!session.watchedSent && session.startedSent && progressOf(video) >= settings.threshold) {
+      if (enoughWatched) {
+        session.watchedSent = true;
+        report("watched");
+      } else if (!session.skipAsked) {
+        // Jumped to the end without watching much: don't mark on our own, ask instead.
+        session.skipAsked = true;
+        report("skipped");
+      }
     }
   };
   const onEnded = () => onTime();

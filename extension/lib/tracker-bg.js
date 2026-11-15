@@ -227,6 +227,10 @@ export async function handleTrack(p, sender) {
   if (s.state === "tracking") {
     if (p.event === "play") api.playback("start", playbackBody(s, p.progress)).catch(() => {});
     if (p.event === "pause") api.playback("pause", playbackBody(s, p.progress)).catch(() => {});
+    if (p.event === "skipped") {
+      s.state = "confirm";
+      toast(s, `Skipped ahead in ${label(s.res)}. Mark it watched?`, [{ id: "confirm", label: "Mark watched" }], 0);
+    }
     if (p.event === "watched") {
       if (settings.confirmBeforeMark) {
         s.state = "confirm";
