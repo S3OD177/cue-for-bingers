@@ -37,16 +37,23 @@ function label(res) {
 }
 
 // ---------- identification ----------
-async function watchlistItems() {
-  if (Date.now() - watchlistCache.at < WATCHLIST_TTL_MS) return watchlistCache.items;
-  try {
-    const w = await api.watchlist({ kind: "show", limit: 100 });
-    const items = Object.values(w?.sections || {}).flatMap((s) => s?.items || []);
-    watchlistCache = { at: Date.now(), items };
-  } catch {
-    watchlistCache = { at: Date.now(), items: [] };
-  }
-  return watchlistCache.items;
+let watchlistLoading = null;
+function watchlistItems() {
+  if (Date.now() - watchlistCache.at < WATCHLIST_TTL_MS) return Promise.resolve(watchlistCache.items);
+  // Share one request between callers (resolve() starts it early, alongside the search).
+  watchlistLoading ||= (async () => {
+    try {
+      const w = await api.watchlist({ kind: "show", limit: 100 });
+      const items = Object.values(w?.sections || {}).flatMap((s) => s?.items || []);
+      watchlistCache = { at: Date.now(), items };
+    } catch {
+      watchlistCache = { at: Date.now(), items: [] };
+    } finally {
+      watchlistLoading = null;
+    }
+    return watchlistCache.items;
+  })();
+  return watchlistLoading;
 }
 
 async function nextEpisodeFor(titleId) {
@@ -57,12 +64,26 @@ async function nextEpisodeFor(titleId) {
   return season != null && episode != null ? { season: Number(season), episode: Number(episode) } : null;
 }
 
+const brief = (t) => ({ id: t.id, kind: t.kind, title: t.title, year: t.year ?? null });
+
+// Only suggest a search result that shares a real word with the page title. Site names and
+// filler don't count, so "Prime Video: Suits" never suggests "Prime Video Thursday Night Football".
+const FILLER = new Set(["prime", "video", "amazon", "netflix", "disney", "plus", "hbo", "max", "apple", "hulu", "shahid", "osn", "watch", "online", "and", "the", "tv", "show", "series", "movie", "season", "episode"]);
+// Numbers don't count either: "1. Season" shouldn't suggest "… Season 1, Part 1".
+const words = (s) => norm(s).split(" ").filter((w) => !FILLER.has(w) && !/^\d+$/.test(w) && (w.length >= 3 || /\P{ASCII}/u.test(w)));
+export function sharesWord(pageTitle, t) {
+  const want = new Set(words(pageTitle));
+  return [t.title, t.original_title].some((x) => words(x).some((w) => want.has(w)));
+}
+
+// Returns { value, suggestions }: value is the confident match (or null); suggestions are the
+// top search results to offer as one-click picks when there's no match.
 async function cachedSearch(meta) {
-  // "rc2": v1.2.0 cached failed Arabic lookups (searched without lang) for a week; start fresh.
-  const key = `rc2:${meta.kind || "any"}|${norm(meta.title)}|${meta.year || ""}`;
+  // "rc3": entries now also keep suggestions (rc2 kept only the match).
+  const key = `rc3:${meta.kind || "any"}|${norm(meta.title)}|${meta.year || ""}`;
   const store = await chrome.storage.local.get(key);
   const hit = store[key];
-  if (hit && Date.now() - hit.at < RESOLVE_TTL_MS) return hit.value;
+  if (hit && Date.now() - hit.at < RESOLVE_TTL_MS) return { value: hit.value, suggestions: hit.suggestions || [] };
 
   // Bingers returns English display titles by default, so an Arabic page title (Shahid, OSN+)
   // would never match. Ask for Arabic display titles when the page title is in Arabic.
@@ -86,9 +107,10 @@ async function cachedSearch(meta) {
       confidence = "medium";
     }
   }
-  const value = best ? { id: best.id, kind: best.kind, title: best.title, year: best.year ?? null, confidence } : null;
-  await chrome.storage.local.set({ [key]: { at: Date.now(), value } });
-  return value;
+  const value = best ? { ...brief(best), confidence } : null;
+  const suggestions = best ? [] : items.filter((t) => t?.id && t.title && sharesWord(meta.title, t)).slice(0, 2).map(brief);
+  await chrome.storage.local.set({ [key]: { at: Date.now(), value, suggestions } });
+  return { value, suggestions };
 }
 
 async function rememberedLink(host, rawTitle) {
@@ -97,10 +119,17 @@ async function rememberedLink(host, rawTitle) {
   return (await chrome.storage.local.get(key))[key] || null;
 }
 
-export async function resolve(meta, host) {
+// `out.suggestions` gets the titles to offer when nothing matched.
+export async function resolve(meta, host, out = {}) {
   if (!meta?.title) return null;
-  const linked = await rememberedLink(host, meta.title);
-  const t = linked || (await cachedSearch(meta));
+  // A show without an episode number needs the watchlist (next episode): fetch it while searching.
+  if (meta.kind !== "movie" && meta.episode == null) watchlistItems();
+  let t = await rememberedLink(host, meta.title);
+  if (!t) {
+    const found = await cachedSearch(meta);
+    t = found.value;
+    out.suggestions = found.suggestions;
+  }
   if (!t) return null;
 
   if (t.kind === "movie") return { ...t, season: null, episode: null, guessed: false };
@@ -164,6 +193,7 @@ function publicState(s) {
     season: s.res?.season ?? null,
     episode: s.res?.episode ?? null,
     detected: s.meta?.title || s.raw?.title || null,
+    suggestions: s.state === "unknown" && !s.res ? (s.suggestions || []).map((t) => label(t)) : [],
     progress: s.progress,
     message: s.message || null,
     updatedAt: Date.now(),
@@ -246,16 +276,31 @@ export async function handleTrack(p, sender) {
           s.raw = null;
         }
       }
+      const out = {};
       try {
-        s.res = await resolve(s.meta, s.host);
+        s.res = await resolve(s.meta, s.host, out);
       } catch (e) {
         s.state = "error";
         s.message = e.message;
         return;
       }
-      if (!s.res || s.res.needsEpisode) {
+      s.suggestions = out.suggestions || [];
+      if (s.res?.needsEpisode) {
         s.state = "unknown";
-        toast(s, s.res?.needsEpisode ? `Watching ${s.res.title}? Open Cue to pick the episode.` : "Cue couldn't tell what's playing. Open Cue to pick it.", [], 8000);
+        const start = { season: s.meta?.season ?? 1, episode: 1 };
+        toast(s, `Watching ${s.res.title}?`, [{ id: "firstEpisode", label: `Track ${code(start.season, start.episode)}` }, { id: "ignore", label: "Not this" }], 12000);
+      } else if (!s.res) {
+        s.state = "unknown";
+        const [first, second] = s.suggestions;
+        if (first) {
+          const actions = [{ id: "pick", index: 0, label: "Track it" }];
+          if (second) actions.push({ id: "pick", index: 1, label: label(second) });
+          actions.push({ id: "ignore", label: "Not this" });
+          toast(s, `Watching ${label(first)}?`, actions, 12000);
+        } else {
+          const what = s.meta?.title || s.raw?.title;
+          toast(s, what ? `Cue couldn't find “${what}” on Bingers` : "Cue couldn't tell what's playing", [], 6000);
+        }
       } else {
         s.state = "tracking";
         const note = s.res.guessed ? " (your next episode)" : "";
@@ -296,6 +341,19 @@ async function setEpisode(s, season, episode) {
   }
 }
 
+// Link this page's title to a Bingers title (remembered per site) and start tracking it.
+async function linkTitle(s, t) {
+  const base = { ...t, confidence: "manual" };
+  if (s.meta?.title) await chrome.storage.local.set({ [`link:${s.host}|${norm(s.meta.title)}`]: base });
+  s.res = base.kind === "movie" ? { ...base, season: null, episode: null } : await (async () => {
+    const next = await nextEpisodeFor(base.id);
+    return { ...base, season: s.meta?.season ?? next?.season ?? 1, episode: s.meta?.episode ?? next?.episode ?? 1, guessed: !s.meta?.episode };
+  })();
+  s.state = "tracking";
+  s.suggestions = [];
+  if (s.pendingWatched) await markWatched(s);
+}
+
 export async function handleTrackerAction(p) {
   const { sessionId, action, titleId, delta } = p;
   const s = sessions.get(sessionId);
@@ -321,15 +379,16 @@ export async function handleTrackerAction(p) {
     if (!(season >= 0 && season < 1000 && episode >= 1 && episode < 10000)) throw new Error("Enter a season (0 or more) and an episode (1 or more).");
     await setEpisode(s, season, episode);
   } else if (action === "link" && titleId) {
-    const t = await api.title(titleId);
-    const base = { id: t.id, kind: t.kind, title: t.title, year: t.year ?? null, confidence: "manual" };
-    if (s.meta?.title) await chrome.storage.local.set({ [`link:${s.host}|${norm(s.meta.title)}`]: base });
-    s.res = base.kind === "movie" ? { ...base, season: null, episode: null } : await (async () => {
-      const next = await nextEpisodeFor(base.id);
-      return { ...base, season: s.meta?.season ?? next?.season ?? 1, episode: s.meta?.episode ?? next?.episode ?? 1, guessed: !s.meta?.episode };
-    })();
-    s.state = "tracking";
-    if (s.pendingWatched) await markWatched(s);
+    await linkTitle(s, brief(await api.title(titleId)));
+  } else if (action === "pick") {
+    // In-page button: only one of the titles Cue itself suggested for this session.
+    const t = (s.suggestions || [])[Number(p.index)];
+    if (!t || s.state !== "unknown" || s.res) throw new Error("That suggestion is no longer available.");
+    await linkTitle(s, t);
+    toast(s, `Tracking ${label(s.res)}`, [{ id: "ignore", label: "Not this" }], 5000);
+  } else if (action === "firstEpisode" && s.res?.needsEpisode) {
+    await setEpisode(s, s.meta?.season ?? 1, 1);
+    toast(s, `Tracking ${label(s.res)}`, [{ id: "ignore", label: "Not this" }], 5000);
   }
   await setNowPlaying(s.tabId, publicState(s));
   return publicState(s);
@@ -355,7 +414,18 @@ async function setEmbeds(tabId, list) {
   await chrome.storage.session.set({ embeds });
 }
 
-export async function handleEmbeds({ origins, reset }, sender) {
+// Frames report in any order: an inner player can report before the top page does. So each
+// entry keeps when it was seen, and the top page's report (with its load time) drops only
+// entries from earlier pages. Updates run one at a time so two frames can't overwrite each other.
+let embedQueue = Promise.resolve();
+
+export function handleEmbeds(p, sender) {
+  const run = embedQueue.then(() => updateEmbeds(p, sender));
+  embedQueue = run.catch(() => {});
+  return run;
+}
+
+async function updateEmbeds({ origins, reset, since }, sender) {
   const tabId = sender.tab?.id;
   if (tabId == null) return null;
   const found = [];

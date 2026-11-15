@@ -12,12 +12,15 @@
   const SUFFIX_RE = new RegExp(`\\s*(?:[|\\-–—•:]\\s*)(?:watch\\s+)?(?:${BRANDS})(?:\\s+(?:online|tv))?\\s*$`, "i");
   // "Watch …", Shahid's "شاهد …", and the Arabic "series / film / show" labels in front of the name.
   const PREFIX_RE = /^(?:watch(?:ing)?|now playing|مشاهدة|شاهد|مسلسل|فيلم|برنامج)\s*[:\-]?\s+/i;
+  // The site name in front: "Prime Video: Suits", "Amazon.com: Watch Suits", "Netflix - X".
+  // A separator is required so titles that start with a brand word ("Max Payne") stay whole.
+  const BRAND_PREFIX_RE = new RegExp(`^(?:${BRANDS}|amazon(?:\\.[a-z]{2,3}){1,2})\\s*[:|\\-–—•]\\s*`, "i");
   const GENERIC_RE = new RegExp(`^(?:${BRANDS}|home|player|video|watch|loading\\W*)$`, "i");
 
   function cleanTitle(s) {
     let t = squash(s);
     for (let i = 0; i < 3; i++) t = t.replace(SUFFIX_RE, "");
-    for (let i = 0; i < 2; i++) t = t.replace(PREFIX_RE, "");
+    for (let i = 0; i < 2; i++) t = t.replace(BRAND_PREFIX_RE, "").replace(PREFIX_RE, "");
     t = t.replace(/^[\s|\-–—:•"'“”]+|[\s|\-–—:•"'“”,،]+$/g, "");
     return squash(t);
   }
@@ -106,7 +109,23 @@
     return null;
   }
 
-  const usable = (r) => r && r.title && r.title.length >= 2 && !GENERIC_RE.test(r.title);
+  // A season or episode label on its own ("1. Season", "Season 2", "Episode 4", "الموسم 1") is
+  // not a show name.
+  const LABEL_ONLY_RE = /^(?:\d{1,3}\.?\s*(?:season|sezon|staffel|saison|temporada)|(?:season|sezon|staffel|saison|temporada|episode|ep\.?|الموسم|الحلقة|الجزء)\s*\d{1,4})$/i;
+  const usable = (r) => r && r.title && r.title.length >= 2 && !GENERIC_RE.test(r.title) && !LABEL_ONLY_RE.test(r.title);
+
+  // The player's own overlay: title "Meryem", subtitle "S1 E1 قسمت 1" or "Season 1, Ep. 1 Pilot".
+  function fromPlayer(p) {
+    if (!p?.title) return null;
+    const title = cleanTitle(p.title);
+    const ep = p.subtitle ? parseText(`${title} - ${p.subtitle}`) : null;
+    if (ep && ep.kind === "show" && ep.episode != null) {
+      return { kind: "show", title, season: ep.season, episode: ep.episode, year: null, source: "player", confidence: "high" };
+    }
+    // No episode line: a movie, or the overlay hasn't filled in yet. The title is still the best name.
+    const t = parseText(title);
+    return t ? { ...t, source: "player", confidence: "medium" } : null;
+  }
 
   /**
    * info = { jsonld: [...], session: {title, artist, album}, ogTitle, docTitle, heading }
@@ -114,6 +133,9 @@
   function parseMediaInfo(info = {}) {
     const ld = fromJsonLd(info.jsonld);
     if (usable(ld)) return ld;
+
+    const pl = fromPlayer(info.player);
+    if (usable(pl) && pl.confidence === "high") return pl;
 
     const s = info.session || {};
     if (s.title) {
@@ -142,9 +164,24 @@
       episodeOnly = episodeOnly || { ...t, source, confidence: "medium" };
     }
     if (episodeOnly) return episodeOnly;
+    if (usable(pl)) return pl;
+    // A field that is only a season label ("Prime Video: 1. Season") still tells us the season;
+    // the show name then comes from another field (Prime's heading).
+    const labelSeason = seasonFromLabels(info);
     for (const [field, source] of [["ogTitle", "og:title"], ["docTitle", "title"], ["heading", "heading"]]) {
       const t = parseText(info[field]);
-      if (usable(t)) return { ...t, source, confidence: "low" };
+      if (!usable(t)) continue;
+      if (labelSeason != null && t.season == null) return { ...t, kind: "show", season: labelSeason, source, confidence: "low" };
+      return { ...t, source, confidence: "low" };
+    }
+    return null;
+  }
+
+  const SEASON_LABEL_RE = /^(?:(\d{1,3})\.?\s*(?:season|sezon|staffel|saison|temporada)|(?:season|sezon|staffel|saison|temporada|الموسم)\s*(\d{1,3}))$/i;
+  function seasonFromLabels(info) {
+    for (const f of ["docTitle", "ogTitle", "heading"]) {
+      const m = cleanTitle(toAsciiDigits(info[f] || "")).match(SEASON_LABEL_RE);
+      if (m) return Number(m[1] ?? m[2]);
     }
     return null;
   }

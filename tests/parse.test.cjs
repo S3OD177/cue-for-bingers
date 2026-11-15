@@ -99,4 +99,32 @@ t("Season without an episode", () => {
   r = parseText("Watch The Bear Season 3 | Hulu");
   assert.equal(r.title, "The Bear"); assert.equal(r.season, 3); assert.equal(r.episode, null);
 });
+t("Site name in front of the title (Prime Video)", () => {
+  assert.equal(parseText("Prime Video: Suits").title, "Suits");
+  assert.equal(parseText("Amazon.com: Watch Suits | Prime Video").title, "Suits");
+  const r = parseText("Prime Video: Suits - Season 2");
+  assert.equal(r.title, "Suits"); assert.equal(r.season, 2);
+  assert.equal(parseText("Netflix - Dark").title, "Dark");
+  // No separator: a title that starts with a brand word stays whole.
+  assert.equal(parseText("Max Payne (2008)").title, "Max Payne");
+});
+t("Player overlay beats a season heading (Prime Video)", () => {
+  const r = parseMediaInfo({ player: { title: "Meryem", subtitle: "S1 E1 قسمت 1" }, heading: "1. Season", docTitle: "Prime Video: Meryem" });
+  assert.equal(r.title, "Meryem"); assert.equal(r.season, 1); assert.equal(r.episode, 1); assert.equal(r.source, "player");
+  const r2 = parseMediaInfo({ player: { title: "Suits", subtitle: "Season 2, Ep. 3 Meet the New Boss" } });
+  assert.equal(r2.title, "Suits"); assert.equal(r2.season, 2); assert.equal(r2.episode, 3);
+});
+t("A season label alone is not a title", () => {
+  assert.equal(parseMediaInfo({ heading: "1. Season", docTitle: "Prime Video" }), null);
+  const r = parseMediaInfo({ heading: "1. Season", docTitle: "Prime Video: Meryem" });
+  assert.equal(r.title, "Meryem");
+});
+t("Season label in the page title adds the season (Prime Video detail page, user report)", () => {
+  const r = parseMediaInfo({ jsonld: [], session: null, ogTitle: "", docTitle: "Prime Video: 1. Season", heading: "Meryem" });
+  assert.equal(r.title, "Meryem"); assert.equal(r.kind, "show"); assert.equal(r.season, 1); assert.equal(r.episode, null);
+  const de = parseMediaInfo({ docTitle: "Prime Video: Staffel 2", heading: "Dark" });
+  assert.equal(de.title, "Dark"); assert.equal(de.season, 2);
+  const movie = parseMediaInfo({ docTitle: "Prime Video: Dune: Part Two", heading: "Dune: Part Two" });
+  assert.equal(movie.season, null);
+});
 console.log(`\n${n} parser tests passed`);

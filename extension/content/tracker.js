@@ -62,7 +62,23 @@
     }
     const og = document.querySelector('meta[property="og:title"]')?.getAttribute("content") || "";
     const h = document.querySelector("h1")?.textContent || "";
-    return { jsonld: readJsonLd(), session, ogTitle: og, docTitle: document.title || "", heading: h.slice(0, 200) };
+    return { jsonld: readJsonLd(), session, player: readPlayer(), ogTitle: og, docTitle: document.title || "", heading: h.slice(0, 200) };
+  }
+
+  // The title and episode line that big players overlay on the video. The page around the
+  // player (h1, document.title) often still shows the detail page, e.g. a "1. Season" heading.
+  const PLAYER_FIELDS = [
+    [".atvwebplayersdk-title-text", ".atvwebplayersdk-subtitle-text"], // Prime Video
+    ['[data-uia="video-title"] h4', '[data-uia="video-title"] span'], // Netflix
+    [".title-field", ".subtitle-field"], // Disney+
+  ];
+  function readPlayer() {
+    const text = (sel) => (document.querySelector(sel)?.textContent || "").replace(/\s+/g, " ").trim().slice(0, 200);
+    for (const [t, s] of PLAYER_FIELDS) {
+      const title = text(t);
+      if (title) return { title, subtitle: text(s) };
+    }
+    return null;
   }
 
   // ---------- finding the main video ----------
@@ -123,17 +139,33 @@
     });
   }
 
+  // Good enough to send right away: structured data, or a show with its episode number.
+  const solid = (m) => !!m && (m.confidence === "high" || m.episode != null);
+  const META_WAIT_MS = 2500;
+
   const onPlaying = () => {
     if (!session) return;
-    if (!session.startedSent) {
-      // Give the player a moment to publish its metadata.
-      setTimeout(() => {
-        if (session && !session.startedSent && !video.paused) {
-          session.startedSent = true;
-          report("play");
-        }
-      }, 2500);
-    } else report("play");
+    if (session.startedSent) return report("play");
+    if (session.waiting) return;
+    // Send as soon as the page names what's playing; give a slow player up to 2.5 s to publish
+    // its metadata before going with what's there.
+    const s = session;
+    const since = Date.now();
+    s.waiting = true;
+    const check = () => {
+      if (session !== s || s.startedSent) return;
+      if (!video || video.paused) {
+        s.waiting = false;
+        return;
+      }
+      s.info = readInfo();
+      s.meta = Parse.parseMediaInfo(s.info);
+      if (solid(s.meta) || Date.now() - since >= META_WAIT_MS) {
+        s.startedSent = true;
+        report("play");
+      } else setTimeout(check, 300);
+    };
+    check();
   };
   const onPause = () => {
     if (session?.startedSent && !session.watchedSent && !video.ended) report("pause");
@@ -224,6 +256,15 @@
 
   timer = setInterval(tick, 2000);
   tick();
+  // Media events don't bubble, but they can be caught on the way down: notice a video the moment
+  // it knows its length or starts playing, instead of waiting for the next 2-second check.
+  let soon = null;
+  const tickSoon = (e) => {
+    if (e.target?.tagName !== "VIDEO" || (e.target === video && e.type !== "durationchange")) return;
+    clearTimeout(soon);
+    soon = setTimeout(tick, 50);
+  };
+  for (const type of ["loadedmetadata", "durationchange", "playing"]) document.addEventListener(type, tickSoon, true);
   window.addEventListener("pagehide", () => {
     if (session?.startedSent && !session.watchedSent) report("pause");
   });
@@ -274,7 +315,7 @@
       b.className = i === 0 ? "p" : "";
       b.textContent = a.label;
       b.addEventListener("click", () => {
-        send("trackerAction", { sessionId, action: a.id });
+        send("trackerAction", { sessionId, action: a.id, index: a.index });
         box.remove();
       });
       box.append(b);
@@ -313,7 +354,7 @@
       } catch {
         path = location.pathname.slice(0, 200);
       }
-      sendResponse({ host: location.hostname, path, docTitle: info.docTitle.slice(0, 200), ogTitle: info.ogTitle.slice(0, 200), heading: info.heading, mediaSession: info.session, jsonld, parsed: Parse.parseMediaInfo(info) });
+      sendResponse({ host: location.hostname, path, docTitle: info.docTitle.slice(0, 200), ogTitle: info.ogTitle.slice(0, 200), heading: info.heading, player: info.player, mediaSession: info.session, jsonld, parsed: Parse.parseMediaInfo(info) });
     }
   });
 })();

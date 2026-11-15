@@ -97,8 +97,9 @@ const handlers = {
 
 // Content scripts run on third-party pages, so they only get a narrow set of operations.
 const CONTENT_SCRIPT_ALLOWED = new Set(["getSession", "check", "title", "actions", "openOptions", "track", "trackerAction", "trackerEmbeds"]);
-// In-page notice buttons may only do these; linking/episode fixes happen in the popup.
-const CONTENT_TRACKER_ACTIONS = new Set(["ignore", "confirm", "undo"]);
+// In-page notice buttons may only do these. "pick" can only choose among the titles Cue itself
+// suggested for that session (by index); free linking/episode edits stay in the popup.
+const CONTENT_TRACKER_ACTIONS = new Set(["ignore", "confirm", "undo", "pick", "firstEpisode"]);
 
 function serializeError(e) {
   return {
