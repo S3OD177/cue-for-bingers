@@ -1,4 +1,5 @@
 import json, sys
+from urllib.parse import unquote
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 LOG = sys.argv[1]
 class H(BaseHTTPRequestHandler):
@@ -12,6 +13,8 @@ class H(BaseHTTPRequestHandler):
         self._log()
         p=self.path
         if p.startswith("/v1/me"): return self._send(200,{"handle":"tester"})
+        if p.startswith("/v1/search") and any("؀" <= c <= "ۿ" for c in unquote(p)):
+            return self._send(200,{"items":[{"id":"team1","kind":"show","title":"الفريق الأول","original_title":"Ekip 1","year":2012}]})
         if p.startswith("/v1/search"): return self._send(200,{"items":[{"id":"sev-id","kind":"show","title":"Severance","year":2022},{"id":"other","kind":"show","title":"Severance Pay","year":2019}]})
         if p.startswith("/v1/watchlist"): return self._send(200,{"sections":{"watch_next":{"count":1,"items":[{"id":"sev-id","kind":"show","title":"Severance","progress":{"next":{"season":2,"number":7}}}]}}})
         if p.startswith("/v1/titles/sev-id"): return self._send(200,{"id":"sev-id","kind":"show","title":"Severance","year":2022})

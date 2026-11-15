@@ -339,6 +339,11 @@ export async function forgetTab(tabId) {
   for (const [id, s] of sessions) if (s.tabId === tabId) sessions.delete(id);
   await setNowPlaying(tabId, null);
   await setEmbeds(tabId, null);
+  const { embedSeen = {} } = await chrome.storage.session.get("embedSeen");
+  if (embedSeen[tabId]) {
+    delete embedSeen[tabId];
+    await chrome.storage.session.set({ embedSeen });
+  }
 }
 
 // ---------- embedded players ----------
@@ -358,9 +363,21 @@ export async function handleEmbeds({ origins, reset }, sender) {
     const pattern = originPattern(String(o));
     if (pattern && !RESERVED_ORIGINS.includes(pattern)) found.push(pattern);
   }
-  const { embeds = {} } = await chrome.storage.session.get("embeds");
-  // The top frame resets the list on each page; frames add what they find inside.
-  const list = reset && sender.frameId === 0 ? found : [...new Set([...(embeds[tabId] || []), ...found])].slice(0, 10);
+  const now = Date.now();
+  const { embedSeen = {} } = await chrome.storage.session.get("embedSeen");
+  let seen = embedSeen[tabId] || {}; // pattern -> { at, top }
+  if (reset && sender.frameId === 0) {
+    const pageStart = Number(since) || now;
+    seen = Object.fromEntries(Object.entries(seen).filter(([, v]) => !v.top && v.at >= pageStart));
+    for (const o of found) seen[o] = { at: now, top: true };
+  } else {
+    for (const o of found) seen[o] = { at: now, top: !!seen[o]?.top };
+  }
+  const list = Object.keys(seen).slice(-10);
+  seen = Object.fromEntries(list.map((o) => [o, seen[o]]));
+  if (list.length) embedSeen[tabId] = seen;
+  else delete embedSeen[tabId];
+  await chrome.storage.session.set({ embedSeen });
   await setEmbeds(tabId, list);
   return list;
 }

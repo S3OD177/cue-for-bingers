@@ -191,7 +191,7 @@
     const key = [...origins].sort().join(" ");
     if (key === lastEmbeds) return;
     lastEmbeds = key;
-    send("trackerEmbeds", { origins: [...origins].slice(0, 5), reset: isTop });
+    send("trackerEmbeds", { origins: [...origins].slice(0, 5), reset: isTop, since: isTop ? Math.floor(performance.timeOrigin) : undefined });
   }
 
   function tick() {
