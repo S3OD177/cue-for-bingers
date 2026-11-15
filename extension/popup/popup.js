@@ -1,5 +1,15 @@
 import { send, el, statusLabel, inLibrary, episodeParts, episodeCode, toast, describeResult } from "../lib/ui.js";
-import { originPattern, ALL_SITES } from "../lib/sites.js";
+import { originPattern, ALL_SITES, POPULAR_SITES } from "../lib/sites.js";
+import { SUPPORT_EMAIL, supportEmailSet } from "../lib/config.js";
+
+// Opens a draft email to the developer. Nothing is sent unless the user sends it.
+function emailDeveloper(subject, lines) {
+  const v = chrome.runtime.getManifest().version;
+  const body = [...lines, "", `Cue for Bingers ${v}`, "", "Anything else you'd like to add:", ""].join("
+");
+  chrome.tabs.create({ url: `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}` });
+}
+const isKnownSite = (pattern) => POPULAR_SITES.some((s) => s.origin === pattern);
 
 const app = document.getElementById("app");
 const who = document.getElementById("who");
@@ -284,6 +294,13 @@ async function renderLive(container) {
       el("span", {}, el("span", { class: "live-dot" }), `Auto-tracking on ${host}`),
       el("button", { class: "link small", onclick: turnOff }, everywhere ? "Skip this site" : "Turn off")
     ));
+    // A site we don't list yet: let the user tell the developer about it.
+    if (supportEmailSet() && !isKnownSite(pattern)) {
+      parts.push(el("div", { class: "site-row" },
+        el("span", { class: "muted small" }, `${host} isn't on Cue's list of streaming sites yet.`),
+        el("button", { class: "link small", onclick: () => emailDeveloper(`Add ${host} to Cue`, [`Please add this streaming site: ${host}`]) }, "Suggest it")
+      ));
+    }
   } else if (skipped) {
     const b = el("button", { class: "btn" }, `▶ Track ${host} again`);
     b.addEventListener("click", async () => {
@@ -343,6 +360,18 @@ function nowPlayingCard(np, container) {
         switchTab("search");
       },
     }, np.state === "unknown" ? "Pick title" : "Wrong title?"));
+  }
+  if (supportEmailSet() && ["unknown", "error"].includes(np.state)) {
+    buttons.push(el("button", {
+      class: "btn",
+      title: "Email the developer so Cue can learn this site",
+      onclick: () => emailDeveloper(`Cue couldn't read ${np.host}`, [
+        `Site: ${np.host}`,
+        `What Cue saw: ${np.detected || "(nothing)"}`,
+        `Status: ${np.state}${np.message ? ` (${np.message})` : ""}`,
+        "What was actually playing: ",
+      ]),
+    }, "Report"));
   }
   if (np.state === "tracking") buttons.push(el("button", { class: "btn", onclick: () => act({ action: "ignore" }, "Won't track this one") }, "Stop"));
   if (np.state === "watched") buttons.push(el("button", { class: "btn", onclick: () => act({ action: "undo" }, "Undone") }, "Undo"));

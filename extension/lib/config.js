@@ -12,5 +12,10 @@ export const OAUTH_CLIENT_ID = "https://YOUR-DOMAIN/bingers-extension/client-met
 export const OAUTH_SCOPES = "library:read library:write offline_access";
 export const OAUTH_RESOURCE = "https://api.bingers.app/v1"; // tokens are audience-bound
 
+// Where "Suggest this site" / "Report this page" emails go. The links stay hidden until this
+// is set. Nothing is sent automatically: the user's mail app opens with a draft they can edit.
+export const SUPPORT_EMAIL = "YOUR-SUPPORT-EMAIL";
+export const supportEmailSet = () => !/YOUR-/.test(SUPPORT_EMAIL);
+
 export const WEB_BASE = "https://bingers.app";
 export const INTEGRATIONS_URL = "https://bingers.app/integrations";
