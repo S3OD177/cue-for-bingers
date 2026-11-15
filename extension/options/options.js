@@ -1,6 +1,6 @@
 import { send, el } from "../lib/ui.js";
 import { INTEGRATIONS_URL } from "../lib/config.js";
-import { POPULAR_SITES, ALL_SITES, isAllSitesPattern, siteLabel } from "../lib/sites.js";
+import { ALL_SITES, isAllSitesPattern, siteLabel } from "../lib/sites.js";
 
 const body = document.getElementById("account-body");
 const badge = document.getElementById("show-badge");
@@ -140,14 +140,13 @@ async function renderSites() {
   const { seenHosts = [] } = await chrome.storage.local.get("seenHosts");
   excludedEl.replaceChildren();
 
-  // Listed: the popular sites, any site turned on, and sites where Cue has tracked something
-  // (or that were skipped), so sites added from the popup or "all websites" show up too.
+  // Listed: only the user's own sites: turned on, tracked something, or skipped. The verified
+  // streaming sites aren't listed here; the popup marks them "Verified" when the user is on one.
   const hostOf = (o) => o.replace(/^https?:\/\//, "").replace(/\/\*$/, "");
   const all = [];
   const add = (o) => {
     if (!all.some((x) => hostOf(x) === hostOf(o))) all.push(o);
   };
-  POPULAR_SITES.forEach((s) => add(s.origin));
   granted.forEach(add);
   [...seenHosts, ...excludedHosts].forEach((h) => add(`https://${h}/*`));
 
@@ -176,6 +175,7 @@ async function renderSites() {
     });
     rows.push(el("div", { class: "site" }, el("span", {}, siteLabel(origin), on ? el("span", { class: "on" }, " \u25cf on") : null), btn));
   }
+  if (!rows.length) rows.push(el("p", { class: "muted small" }, "No sites yet. Open a site you watch on, click the Cue icon, then turn it on."));
   sitesEl.replaceChildren(...rows);
 }
 renderSites();

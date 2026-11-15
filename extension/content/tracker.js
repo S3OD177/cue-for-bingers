@@ -296,5 +296,24 @@
     if (msg?.type === "cueReadPage" && isTop) {
       sendResponse({ meta: Parse.parseMediaInfo(readInfo()), host: location.hostname });
     }
+    // The user clicked "Report" / "Suggest it": send the developer only the title info Cue reads,
+    // so a parser for this site can be written without visiting it. No cookies, account data,
+    // query string, or page content beyond these fields.
+    if (msg?.type === "cuePageInfo" && isTop) {
+      const info = readInfo();
+      const KEEP = ["@type", "name", "episodeNumber", "seasonNumber", "datePublished", "dateCreated"];
+      const slim = (o) => (o && typeof o === "object" ? Object.fromEntries(KEEP.filter((k) => k in o).map((k) => [k, o[k]])) : o);
+      const jsonld = info.jsonld
+        .filter((it) => /Episode|Series|Season|Movie|Video|WebPage/i.test([].concat(it["@type"] || []).join(" ")))
+        .slice(0, 5)
+        .map((it) => ({ ...slim(it), partOfSeries: slim(it.partOfSeries || it.partOfTVSeries), partOfSeason: slim(it.partOfSeason) }));
+      let path = "";
+      try {
+        path = decodeURIComponent(location.pathname).slice(0, 200);
+      } catch {
+        path = location.pathname.slice(0, 200);
+      }
+      sendResponse({ host: location.hostname, path, docTitle: info.docTitle.slice(0, 200), ogTitle: info.ogTitle.slice(0, 200), heading: info.heading, mediaSession: info.session, jsonld, parsed: Parse.parseMediaInfo(info) });
+    }
   });
 })();

@@ -4,11 +4,29 @@ import { REPORT_FORM, reportsEnabled } from "../lib/config.js";
 
 // One click sends a short report to the developer's Google Form (rows land in their Sheet).
 // No sign-in for the user; only what's listed here is sent, and only when they click.
+// Asks Cue's tracker on the current page for the title info it reads (title, og:title, heading,
+// media-session and episode/movie JSON-LD, path). Null when Cue isn't running on the page.
+async function pageInfo() {
+  if (!currentTab?.id) return null;
+  try {
+    const info = await Promise.race([
+      chrome.tabs.sendMessage(currentTab.id, { type: "cuePageInfo" }, { frameId: 0 }),
+      new Promise((r) => setTimeout(() => r(null), 1500)),
+    ]);
+    return info || null;
+  } catch {
+    return null;
+  }
+}
+
 async function reportToDeveloper(subject, lines, button) {
   const f = REPORT_FORM.fields;
+  if (button) button.disabled = true;
+  const info = await pageInfo();
+  const details = info ? [...lines, "", "Page info:", JSON.stringify(info).slice(0, 4000)] : lines;
   const body = new URLSearchParams({
     [f.subject]: subject,
-    [f.details]: lines.join("\n"),
+    [f.details]: details.join("\n"),
     [f.version]: chrome.runtime.getManifest().version,
   });
   if (button) button.disabled = true;
@@ -17,12 +35,18 @@ async function reportToDeveloper(subject, lines, button) {
     await fetch(REPORT_FORM.action, { method: "POST", mode: "no-cors", body });
     toast("Sent to the developer. Thanks!", "ok");
     if (button) button.textContent = "Sent ✓";
+    return true;
   } catch {
     toast("Couldn't send it. Check your connection and try again.", "err");
     if (button) button.disabled = false;
+    return false;
   }
 }
-const isKnownSite = (pattern) => POPULAR_SITES.some((s) => s.origin === pattern);
+// Verified = a streaming site Cue has been tested on (www. or not).
+const bareHost = (o) => String(o).replace(/^https?:\/\//, "").replace(/\/\*$/, "").replace(/^www\./, "");
+const isKnownSite = (pattern) => POPULAR_SITES.some((s) => bareHost(s.origin) === bareHost(pattern));
+const verifiedBadge = (pattern) =>
+  isKnownSite(pattern) ? el("span", { class: "verified", title: "Cue has been tested on this site" }, "✓ Verified") : null;
 
 const app = document.getElementById("app");
 const who = document.getElementById("who");
@@ -339,7 +363,7 @@ async function renderLive(container) {
       renderLive(container);
     };
     parts.push(el("div", { class: "site-row" },
-      el("span", {}, el("span", { class: "live-dot" }), `Auto-tracking on ${host}`),
+      el("span", {}, el("span", { class: "live-dot" }), `Auto-tracking on ${host}`, verifiedBadge(pattern)),
       el("button", { class: "link small", onclick: turnOff }, everywhere ? "Skip this site" : "Turn off")
     ));
     // The video may play in an embedded player from another host, which needs its own approval.
@@ -359,9 +383,23 @@ async function renderLive(container) {
     }
     // A site we don't list yet: let the user tell the developer about it.
     if (reportsEnabled() && !isKnownSite(pattern)) {
+      // Remember sites this browser already suggested, so the same site isn't sent twice.
+      const { suggestedHosts = [] } = await chrome.storage.local.get("suggestedHosts");
+      const already = suggestedHosts.includes(host);
+      const suggest = el("button", {
+        class: "link small",
+        onclick: async (e) => {
+          const b = e.currentTarget;
+          if (await reportToDeveloper(`Add ${host} to Cue`, [`Please add this streaming site: ${host}`], b)) {
+            const { suggestedHosts: list = [] } = await chrome.storage.local.get("suggestedHosts");
+            await chrome.storage.local.set({ suggestedHosts: [...new Set([...list, host])].slice(-100) });
+          }
+        },
+      }, already ? "Suggested ✓" : "Suggest it");
+      if (already) suggest.disabled = true;
       parts.push(el("div", { class: "site-row" },
-        el("span", { class: "muted small" }, `${host} isn't on Cue's list of streaming sites yet.`),
-        el("button", { class: "link small", onclick: (e) => reportToDeveloper(`Add ${host} to Cue`, [`Please add this streaming site: ${host}`], e.currentTarget) }, "Suggest it")
+        el("span", { class: "muted small" }, already ? `You suggested ${host} to the developer.` : `${host} isn't on Cue's list of streaming sites yet.`),
+        suggest
       ));
     }
   } else if (skipped) {
@@ -371,7 +409,7 @@ async function renderLive(container) {
       toast(`Auto-tracking on ${host} again`, "ok");
       renderLive(container);
     });
-    parts.push(el("div", { class: "site-row" }, el("span", { class: "muted" }, `Skipped on ${host}`), b));
+    parts.push(el("div", { class: "site-row" }, el("span", { class: "muted" }, `Skipped on ${host}`, verifiedBadge(pattern)), b));
   } else {
     // Chrome shows its own approval prompt. The popup may close while it's open; the
     // service worker finishes the setup either way.
@@ -387,7 +425,7 @@ async function renderLive(container) {
     const players = await pagePlayerOrigins(tab.id);
     const b = el("button", { class: "btn primary", onclick: turnOn([pattern, ...players.filter((o) => o !== pattern)], `Auto-tracking on ${host}. Play something!`) }, `▶ Track ${host}`);
     const all = el("button", { class: "link small", onclick: turnOn(ALL_SITES, "Auto-tracking on all websites") }, "or every website");
-    parts.push(el("div", { class: "site-row" }, el("span", { class: "muted" }, "Mark what you watch here automatically?"), el("span", {}, b, " ", all)));
+    parts.push(el("div", { class: "site-row" }, el("span", { class: "muted" }, "Mark what you watch here automatically?", verifiedBadge(pattern)), el("span", {}, b, " ", all)));
   }
   container.replaceChildren(...parts);
 }
