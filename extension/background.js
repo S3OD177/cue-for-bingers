@@ -4,6 +4,7 @@ import * as auth from "./lib/auth.js";
 import { normalizeCheck } from "./lib/normalize.js";
 import * as tracker from "./lib/tracker-bg.js";
 import { syncSuggestions } from "./lib/suggest.js";
+import { posters, rememberPosters } from "./lib/posters.js";
 
 const CHECK_TTL_MS = 60_000;
 const checkCache = new Map(); // ref -> { at, value }
@@ -73,7 +74,12 @@ const handlers = {
 
   watchlist: (p) => api.watchlist(p),
   recent: (p) => api.recent(p),
-  search: ({ q, kind, limit }) => api.search(q, { kind, limit }),
+  async search({ q, kind, limit }) {
+    const res = await api.search(q, { kind, limit });
+    rememberPosters(res?.items).catch(() => {});
+    return res;
+  },
+  posters: ({ ids }) => posters(ids),
   title: ({ ref }) => api.title(ref),
   check: ({ refs }) => cachedCheck(Array.isArray(refs) ? refs.slice(0, 200) : []),
   async actions({ actions }) {

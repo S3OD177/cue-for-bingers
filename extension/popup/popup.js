@@ -66,7 +66,11 @@ function openUrl(url) {
 }
 
 function poster(src) {
-  if (src) return el("img", { class: "poster", src, alt: "", loading: "lazy", referrerpolicy: "no-referrer" });
+  if (src) {
+    const img = el("img", { class: "poster", src, alt: "", loading: "lazy", referrerpolicy: "no-referrer" });
+    img.addEventListener("error", () => img.replaceWith(poster(null)), { once: true });
+    return img;
+  }
   return el("div", { class: "poster ph", "aria-hidden": "true" }, icon("film", 16));
 }
 
@@ -173,7 +177,7 @@ function switchTab(tab) {
 
 // ---------------- Up next ----------------
 async function renderUpNext(panel) {
-  panel.replaceChildren(skeleton(4));
+  panel.replaceChildren(skeleton(4, true));
   let data;
   try {
     data = await send("watchlist", { limit: 10 });
@@ -199,6 +203,24 @@ async function renderUpNext(panel) {
   }
   if (data?.truncated) out.push(el("div", { class: "muted fine center-note" }, "Showing your most recent titles."));
   panel.replaceChildren(...out);
+  fillPosters(panel);
+}
+
+// The watch list has no posters: show placeholders first, then swap in posters from one
+// batched (and cached) lookup in the service worker.
+async function fillPosters(panel) {
+  const slots = [...panel.querySelectorAll(".poster[data-id]")];
+  if (!slots.length) return;
+  let urls = {};
+  try {
+    urls = await send("posters", { ids: slots.map((s) => s.dataset.id) });
+  } catch {
+    return;
+  }
+  for (const slot of slots) {
+    const url = urls?.[slot.dataset.id];
+    if (url && slot.isConnected) slot.replaceWith(poster(url));
+  }
 }
 
 function libraryCard(item, sectionKey, reload) {
@@ -220,7 +242,10 @@ function libraryCard(item, sectionKey, reload) {
     actions.push(b);
   }
 
+  const slot = poster(null);
+  if (item.id) slot.dataset.id = item.id;
   return el("div", { class: "card" },
+    slot,
     el("div", { class: "meta" },
       el("button", { class: "name", title: item.title, onclick: () => openUrl(item.url) }, item.title),
       el("div", { class: "sub" }, subParts.join(" · ") || statusLabel(item.status))

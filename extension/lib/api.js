@@ -91,6 +91,7 @@ export const api = {
   // Catalog
   search: (q, { kind, limit = 10, lang } = {}) => request("/search", { query: { q, kind, limit, lang } }),
   title: (ref, { lang } = {}) => request(`/titles/${encodeRef(ref)}`, { query: { lang } }),
+  titles: (refs, { lang } = {}) => request("/titles", { query: { ids: refs.slice(0, 100).join(","), lang } }),
   episodes: (ref, { season } = {}) => request(`/titles/${encodeRef(ref)}/episodes`, { query: { season } }),
   trending: ({ kind, list, limit = 10, lang } = {}) => request("/trending", { query: { kind, list, limit, lang } }),
 

@@ -22,7 +22,12 @@ const search = { items: [
   { id: "7", kind: "movie", title: "El Camino: A Breaking Bad Movie", year: 2019, genres: ["Crime", "Thriller"], poster: null },
 ] };
 
+// Solid-colour stand-in posters.
+const fakePoster = (hue) => "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="36" height="54"><defs><linearGradient id="g" x2="0" y2="1"><stop offset="0" stop-color="hsl(${hue} 45% 40%)"/><stop offset="1" stop-color="hsl(${hue} 45% 18%)"/></linearGradient></defs><rect width="36" height="54" fill="url(#g)"/></svg>`);
+search.items.forEach((t, i) => (t.poster = fakePoster(120 + i * 70)));
+
 const handlers = {
+  posters: async ({ ids }) => (await wait(300), Object.fromEntries(ids.map((id, i) => [id, i === 2 ? null : fakePoster(i * 55)]))),
   getSession: () => (q.has("signedout") ? { signedIn: false, oauthConfigured: true } : { signedIn: true, mode: "pat", profile: { handle: "viewer" } }),
   watchlist: async () => (await wait(700), watchlist),
   search: async () => (await wait(600), search),
