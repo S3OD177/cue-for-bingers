@@ -293,18 +293,19 @@ async function renderLive(container) {
     });
     parts.push(el("div", { class: "site-row" }, el("span", { class: "muted" }, `Skipped on ${host}`), b));
   } else {
-    const b = el("button", { class: "btn" }, `▶ Auto-track ${host}`);
-    b.addEventListener("click", async () => {
-      // Chrome shows its own approval prompt. The popup may close while it's open; the
-      // service worker finishes the setup either way.
-      const ok = await chrome.permissions.request({ origins: [pattern] }).catch(() => false);
+    // Chrome shows its own approval prompt. The popup may close while it's open; the
+    // service worker finishes the setup either way.
+    const turnOn = (origins, msg) => async () => {
+      const ok = await chrome.permissions.request({ origins }).catch(() => false);
       if (ok) {
         await send("syncTracker").catch(() => {});
-        toast(`Auto-tracking on ${host}. Play something!`, "ok");
+        toast(msg, "ok");
       }
       renderLive(container);
-    });
-    parts.push(el("div", { class: "site-row" }, el("span", { class: "muted" }, "Mark episodes watched automatically here?"), b));
+    };
+    const b = el("button", { class: "btn primary", onclick: turnOn([pattern], `Auto-tracking on ${host}. Play something!`) }, `▶ Track ${host}`);
+    const all = el("button", { class: "link small", onclick: turnOn(ALL_SITES, "Auto-tracking on all websites") }, "or every website");
+    parts.push(el("div", { class: "site-row" }, el("span", { class: "muted" }, "Mark what you watch here automatically?"), el("span", {}, b, " ", all)));
   }
   container.replaceChildren(...parts);
 }

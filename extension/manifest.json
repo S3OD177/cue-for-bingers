@@ -32,7 +32,8 @@
     "identity",
     "contextMenus",
     "scripting",
-    "activeTab"
+    "activeTab",
+    "declarativeContent"
   ],
   "host_permissions": [
     "https://api.bingers.app/*"

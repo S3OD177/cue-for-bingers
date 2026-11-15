@@ -3,6 +3,7 @@ import { api } from "./lib/api.js";
 import * as auth from "./lib/auth.js";
 import { normalizeCheck } from "./lib/normalize.js";
 import * as tracker from "./lib/tracker-bg.js";
+import { syncSuggestions } from "./lib/suggest.js";
 
 const CHECK_TTL_MS = 60_000;
 const checkCache = new Map(); // ref -> { at, value }
@@ -140,17 +141,28 @@ chrome.runtime.onInstalled.addListener(async (details) => {
   });
   if (details.reason === "install") chrome.runtime.openOptionsPage();
   tracker.syncTrackerScripts().catch(() => {});
+  syncSuggestions().catch(() => {});
 });
 
 // ---------- auto-tracking: keep the tracker registered on exactly the approved sites ----------
-chrome.runtime.onStartup.addListener(() => tracker.syncTrackerScripts().catch(() => {}));
+chrome.runtime.onStartup.addListener(() => {
+  tracker.syncTrackerScripts().catch(() => {});
+  syncSuggestions().catch(() => {});
+});
 chrome.permissions.onAdded.addListener(async (p) => {
   await tracker.syncTrackerScripts().catch(() => {});
   if (p.origins?.length) await tracker.injectIntoOpenTabs(p.origins);
+  syncSuggestions().catch(() => {});
 });
-chrome.permissions.onRemoved.addListener(() => tracker.syncTrackerScripts().catch(() => {}));
+chrome.permissions.onRemoved.addListener(() => {
+  tracker.syncTrackerScripts().catch(() => {});
+  syncSuggestions().catch(() => {});
+});
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === "sync" && "autoTrack" in changes) tracker.syncTrackerScripts().catch(() => {});
+  if (area === "sync" && "autoTrack" in changes) {
+    tracker.syncTrackerScripts().catch(() => {});
+    syncSuggestions().catch(() => {});
+  }
 });
 chrome.tabs.onRemoved.addListener((tabId) => tracker.forgetTab(tabId).catch(() => {}));
 

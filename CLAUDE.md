@@ -22,7 +22,9 @@ Built and tested so far:
 - **Site permissions:** nothing is granted at install. Sites are turned on one at a time (optional host
   permissions, dynamic `chrome.scripting.registerContentScripts`), or all at once with the
   "Auto-track on all websites" switch (`https://*/*`, `http://*/*`). In all-sites mode,
-  "Skip this site" uses `excludedHosts` in sync storage.
+  "Skip this site" uses `excludedHosts` in sync storage. On the `POPULAR_SITES` that aren't on yet,
+  `lib/suggest.js` uses `declarativeContent` to put a green dot on the toolbar icon, and the popup
+  offers "▶ Track <site>" or "every website" (no host permission needed for the hint).
 - **Settings page:** account, auto-tracking (threshold 80–95%, minimum video length, confirm before
   marking, sites), badge toggle.
 
