@@ -57,12 +57,16 @@ async function nextEpisodeFor(titleId) {
 }
 
 async function cachedSearch(meta) {
-  const key = `rc:${meta.kind || "any"}|${norm(meta.title)}|${meta.year || ""}`;
+  // "rc2": v1.2.0 cached failed Arabic lookups (searched without lang) for a week; start fresh.
+  const key = `rc2:${meta.kind || "any"}|${norm(meta.title)}|${meta.year || ""}`;
   const store = await chrome.storage.local.get(key);
   const hit = store[key];
   if (hit && Date.now() - hit.at < RESOLVE_TTL_MS) return hit.value;
 
-  const data = await api.search(meta.title, { kind: meta.kind || undefined, limit: 5 });
+  // Bingers returns English display titles by default, so an Arabic page title (Shahid, OSN+)
+  // would never match. Ask for Arabic display titles when the page title is in Arabic.
+  const lang = /[؀-ۿ]/.test(meta.title) ? "ar" : undefined;
+  const data = await api.search(meta.title, { kind: meta.kind || undefined, limit: 5, lang });
   const items = data?.items || [];
   const target = norm(meta.title);
   let best = null;

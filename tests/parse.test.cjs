@@ -15,7 +15,7 @@ t("Season/Episode words", () => {
 });
 t("Arabic season + episode with Arabic-Indic digits", () => {
   const r = parseText("مسلسل الحشاشين الموسم ١ الحلقة ٧ | شاهد");
-  assert.equal(r.season, 1); assert.equal(r.episode, 7); assert.equal(r.title, "مسلسل الحشاشين");
+  assert.equal(r.season, 1); assert.equal(r.episode, 7); assert.equal(r.title, "الحشاشين");
 });
 t("Arabic episode only", () => {
   const r = parseText("الحشاشين - الحلقة 12 - شاهد");
@@ -50,5 +50,26 @@ t("Generic site title is ignored", () => {
 t("og:title fallback with episode", () => {
   const r = parseMediaInfo({ docTitle: "Player", ogTitle: "Slow Horses S04E01 | Apple TV+" });
   assert.equal(r.title, "Slow Horses"); assert.equal(r.episode, 1);
+});
+t("Shahid player page: season comes from document.title, not og:title", () => {
+  const r = parseMediaInfo({
+    jsonld: [{ "@type": "WebPage", name: "المدينة البعيدة" }],
+    ogTitle: "المدينة البعيدة, الحلقة 316",
+    docTitle: "شاهد المدينة البعيدة - الموسم 3 / الحلقة 316 - MBC شاهد",
+    heading: "شاهد المدينة البعيدة, م3 ح316 - MBC شاهد",
+  });
+  assert.equal(r.title, "المدينة البعيدة"); assert.equal(r.season, 3); assert.equal(r.episode, 316);
+});
+t("Shahid short form م3 ح316", () => {
+  const r = parseText("شاهد المدينة البعيدة, م3 ح316 - MBC شاهد");
+  assert.equal(r.title, "المدينة البعيدة"); assert.equal(r.season, 3); assert.equal(r.episode, 316);
+});
+t("Shahid episode-only og:title still works alone", () => {
+  const r = parseMediaInfo({ ogTitle: "المدينة البعيدة, الحلقة 316", docTitle: "MBC شاهد" });
+  assert.equal(r.title, "المدينة البعيدة"); assert.equal(r.season, null); assert.equal(r.episode, 316);
+});
+t("MBC Shahid brand suffix is stripped", () => {
+  assert.equal(parseText("Watch Detective Knight - MBC Shahid").title, "Detective Knight");
+  assert.equal(parseText("شاهد فيلم راعي الأجرب - MBC شاهد").title, "راعي الأجرب");
 });
 console.log(`\n${n} parser tests passed`);

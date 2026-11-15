@@ -8,16 +8,17 @@
   const squash = (s) => String(s || "").replace(/[\s ]+/g, " ").trim();
 
   const BRANDS =
-    "netflix|prime video|amazon prime video|amazon|disney\\+|disney plus|hbo max|max|apple tv\\+?|hulu|crunchyroll|shahid|شاهد|osn\\+?|osnplus|plex|jellyfin|emby|youtube|paramount\\+|peacock|stc tv|starzplay|tod";
+    "netflix|prime video|amazon prime video|amazon|disney\\+|disney plus|hbo max|max|apple tv\\+?|hulu|crunchyroll|mbc shahid|mbc شاهد|shahid|شاهد|osn\\+?|osnplus|plex|jellyfin|emby|youtube|paramount\\+|peacock|stc tv|starzplay|tod";
   const SUFFIX_RE = new RegExp(`\\s*(?:[|\\-–—•:]\\s*)(?:watch\\s+)?(?:${BRANDS})(?:\\s+(?:online|tv))?\\s*$`, "i");
-  const PREFIX_RE = /^(?:watch(?:ing)?|now playing|مشاهدة|شاهد)\s*[:\-]?\s+/i;
+  // "Watch …", Shahid's "شاهد …", and the Arabic "series / film / show" labels in front of the name.
+  const PREFIX_RE = /^(?:watch(?:ing)?|now playing|مشاهدة|شاهد|مسلسل|فيلم|برنامج)\s*[:\-]?\s+/i;
   const GENERIC_RE = new RegExp(`^(?:${BRANDS}|home|player|video|watch|loading\\W*)$`, "i");
 
   function cleanTitle(s) {
     let t = squash(s);
     for (let i = 0; i < 3; i++) t = t.replace(SUFFIX_RE, "");
-    t = t.replace(PREFIX_RE, "");
-    t = t.replace(/^[\s|\-–—:•"'“”]+|[\s|\-–—:•"'“”,]+$/g, "");
+    for (let i = 0; i < 2; i++) t = t.replace(PREFIX_RE, "");
+    t = t.replace(/^[\s|\-–—:•"'“”]+|[\s|\-–—:•"'“”,،]+$/g, "");
     return squash(t);
   }
 
@@ -27,6 +28,7 @@
     [/\b(\d{1,2})x(\d{1,3})\b/, true],
     [/\bSeason\s*(\d{1,3})\b[^\d]{0,15}?\b(?:Episode|Ep\.?|E)\s*(\d{1,4})\b/i, true],
     [/الموسم\s*(\d{1,3})[\s\S]{0,20}?الحلقة\s*(\d{1,4})/, true], // الموسم N ... الحلقة N
+    [/(?:^|[\s,،(])م\s?(\d{1,3})\s*[,،\-]?\s*ح\s?(\d{1,4})(?!\d)/, true], // Shahid short form: م3 ح316
     [/\b(?:Episode|Ep\.?)\s*(\d{1,4})\b/i, false],
     [/الحلقة\s*(\d{1,4})/, false], // الحلقة N
   ];
@@ -93,10 +95,16 @@
       if (t && usable(t)) return { ...t, source: "mediaSession", confidence: "medium" };
     }
 
+    // Several fields can name the episode; Shahid's og:title drops the season that its
+    // document.title has. Prefer the first one that has both season and episode.
+    let episodeOnly = null;
     for (const [field, source] of [["heading", "heading"], ["ogTitle", "og:title"], ["docTitle", "title"]]) {
       const t = parseText(info[field]);
-      if (t && t.kind === "show" && usable(t)) return { ...t, source, confidence: "medium" };
+      if (!(t && t.kind === "show" && usable(t))) continue;
+      if (t.season != null) return { ...t, source, confidence: "medium" };
+      episodeOnly = episodeOnly || { ...t, source, confidence: "medium" };
     }
+    if (episodeOnly) return episodeOnly;
     for (const [field, source] of [["ogTitle", "og:title"], ["docTitle", "title"], ["heading", "heading"]]) {
       const t = parseText(info[field]);
       if (usable(t)) return { ...t, source, confidence: "low" };
