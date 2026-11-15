@@ -85,8 +85,6 @@
       meta: null,
       startedSent: false,
       watchedSent: false,
-      playedSeconds: 0,
-      lastTime: v.currentTime,
     };
   }
 
@@ -128,20 +126,11 @@
   };
   const onTime = () => {
     if (!session) return;
-    const dt = video.currentTime - session.lastTime;
-    if (dt > 0 && dt < 5) session.playedSeconds += dt; // only count real playback, not seeks
-    session.lastTime = video.currentTime;
-    // Require some genuine watching so a seek to the end doesn't mark anything.
-    const enoughWatched = session.playedSeconds >= Math.min(300, video.duration * 0.15);
+    // Reaching the threshold marks it, however the viewer got there: skipping ahead is fine,
+    // e.g. they watched most of it on another device and are just finishing here.
     if (!session.watchedSent && session.startedSent && progressOf(video) >= settings.threshold) {
-      if (enoughWatched) {
-        session.watchedSent = true;
-        report("watched");
-      } else if (!session.skipAsked) {
-        // Jumped to the end without watching much: don't mark on our own, ask instead.
-        session.skipAsked = true;
-        report("skipped");
-      }
+      session.watchedSent = true;
+      report("watched");
     }
   };
   const onEnded = () => onTime();
