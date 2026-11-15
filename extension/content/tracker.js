@@ -8,7 +8,20 @@
   if (!Parse) return;
 
   let settings = { autoTrack: true, threshold: 90, minMinutes: 10, excludedHosts: [] };
-  const hostExcluded = () => (settings.excludedHosts || []).includes(location.hostname);
+  const isTop = window.top === window;
+  // The site the user is on. Many sites play the video in an embedded player from another
+  // host (often two iframes deep), so a frame names the top page, not itself.
+  function pageHost() {
+    if (isTop) return location.hostname;
+    const anc = location.ancestorOrigins;
+    try {
+      if (anc && anc.length) return new URL(anc[anc.length - 1]).hostname;
+    } catch {
+      /* fall through */
+    }
+    return location.hostname;
+  }
+  const hostExcluded = () => (settings.excludedHosts || []).includes(pageHost());
   chrome.storage.sync.get(settings).then((s) => (settings = s)).catch(() => {});
   chrome.storage.onChanged.addListener((c, area) => {
     if (area === "sync") for (const k of Object.keys(settings)) if (k in c) settings[k] = c[k].newValue;
@@ -104,8 +117,9 @@
       progress: Math.round(progressOf(video) * 10) / 10,
       duration: Math.round(video.duration),
       meta: session.meta,
-      raw: session.meta ? null : { title: session.info?.docTitle?.slice(0, 120) || "", host: location.hostname },
-      host: location.hostname,
+      raw: session.meta ? null : { title: session.info?.docTitle?.slice(0, 120) || "", host: pageHost() },
+      host: pageHost(),
+      inFrame: !isTop,
     });
   }
 

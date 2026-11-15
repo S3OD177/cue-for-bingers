@@ -5,8 +5,7 @@ import { SUPPORT_EMAIL, supportEmailSet } from "../lib/config.js";
 // Opens a draft email to the developer. Nothing is sent unless the user sends it.
 function emailDeveloper(subject, lines) {
   const v = chrome.runtime.getManifest().version;
-  const body = [...lines, "", `Cue for Bingers ${v}`, "", "Anything else you'd like to add:", ""].join("
-");
+  const body = [...lines, "", `Cue for Bingers ${v}`, "", "Anything else you'd like to add:", ""].join("\n");
   chrome.tabs.create({ url: `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}` });
 }
 const isKnownSite = (pattern) => POPULAR_SITES.some((s) => s.origin === pattern);
