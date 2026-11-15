@@ -201,7 +201,7 @@
   let hideTimer = null;
   const CSS = `
     :host { all: initial; }
-    .t { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 2147483647;
+    .t { position: fixed; left: 50%; top: 28px; transform: translateX(-50%); z-index: 2147483647;
          display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 14px; border-radius: 999px;
          background: #0c0b0b; color: #f6f3f0; border: 1px solid #2c2826; box-shadow: 0 10px 30px rgba(0,0,0,.45);
          font: 13px/1.3 "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; max-width: min(560px, 92vw); }
