@@ -1,6 +1,7 @@
 import { send, el, statusLabel, inLibrary, episodeParts, episodeCode, toast, describeResult } from "../lib/ui.js";
 import { originPattern, ALL_SITES, POPULAR_SITES } from "../lib/sites.js";
 import { REPORT_FORM, reportsEnabled } from "../lib/config.js";
+import { icon } from "../lib/icons.js";
 
 // One click sends a short report to the developer's Google Form (rows land in their Sheet).
 // No sign-in for the user; only what's listed here is sent, and only when they click.
@@ -48,7 +49,9 @@ const isKnownSite = (pattern) => POPULAR_SITES.some((s) => bareHost(s.origin) ==
 
 const app = document.getElementById("app");
 const who = document.getElementById("who");
-document.getElementById("open-options").addEventListener("click", () => chrome.runtime.openOptionsPage());
+const optionsBtn = document.getElementById("open-options");
+optionsBtn.replaceChildren(icon("settings", 16));
+optionsBtn.addEventListener("click", () => chrome.runtime.openOptionsPage());
 if (new URLSearchParams(location.search).has("tab")) document.body.classList.add("as-tab");
 
 let activeTab = "next";
@@ -64,7 +67,29 @@ function openUrl(url) {
 
 function poster(src) {
   if (src) return el("img", { class: "poster", src, alt: "", loading: "lazy", referrerpolicy: "no-referrer" });
-  return el("div", { class: "poster ph", "aria-hidden": "true" }, "🎬");
+  return el("div", { class: "poster ph", "aria-hidden": "true" }, icon("film", 16));
+}
+
+// A button with a leading icon.
+function iconBtn(cls, name, label, attrs = {}) {
+  return el("button", { class: cls, ...attrs }, icon(name, 13), el("span", {}, label));
+}
+
+// Grey placeholder rows while a list loads.
+function skeleton(rows = 3, withPoster = false) {
+  return el("div", { class: "skeleton", "aria-busy": "true", "aria-label": "Loading" },
+    Array.from({ length: rows }, () =>
+      el("div", { class: "card sk-card" },
+        withPoster ? el("div", { class: "poster sk" }) : null,
+        el("div", { class: "meta" }, el("div", { class: "sk sk-line" }), el("div", { class: "sk sk-line short" })),
+        el("div", { class: "sk sk-btn" })
+      )
+    )
+  );
+}
+
+function emptyState(iconName, text) {
+  return el("div", { class: "empty" }, el("div", { class: "empty-ic" }, icon(iconName, 22)), el("div", {}, text));
 }
 
 function chip(status) {
@@ -78,9 +103,8 @@ function showError(container, e) {
 }
 
 async function runAction(button, action, onDone) {
-  const original = button.textContent;
   button.disabled = true;
-  button.textContent = "…";
+  button.classList.add("busy");
   try {
     const res = await send("actions", { actions: [action] });
     const d = describeResult(res);
@@ -91,7 +115,7 @@ async function runAction(button, action, onDone) {
   } finally {
     if (button.isConnected) {
       button.disabled = false;
-      button.textContent = original;
+      button.classList.remove("busy");
     }
   }
 }
@@ -124,8 +148,8 @@ function renderSignedOut(session) {
   } else {
     children.push(el("button", { class: "btn primary big", onclick: () => chrome.runtime.openOptionsPage() }, "Connect with an access token"));
   }
-  children.push(el("p", { class: "muted", style: "font-size:11px" }, "API access needs the Bingers Legend or Icon plan."));
-  app.replaceChildren(el("div", { class: "signin" }, children));
+  children.push(el("p", { class: "muted fine" }, "API access needs the Bingers Legend or Icon plan."));
+  app.replaceChildren(el("div", { class: "signin" }, el("img", { class: "signin-logo", src: "../icons/icon128.png", alt: "", width: "56", height: "56" }), children));
 }
 
 // ---------------- signed-in shell ----------------
@@ -149,7 +173,7 @@ function switchTab(tab) {
 
 // ---------------- Up next ----------------
 async function renderUpNext(panel) {
-  panel.replaceChildren(el("div", { class: "empty" }, "Loading your watch list…"));
+  panel.replaceChildren(skeleton(4));
   let data;
   try {
     data = await send("watchlist", { limit: 10 });
@@ -171,9 +195,9 @@ async function renderUpNext(panel) {
     for (const item of s.items) out.push(libraryCard(item, key, () => renderUpNext(panel)));
   }
   if (!out.length) {
-    out.push(el("div", { class: "empty" }, "Nothing queued up. Find something in Search and follow it."));
+    out.push(emptyState("tv", "Nothing queued up. Find something in Search and follow it."));
   }
-  if (data?.truncated) out.push(el("div", { class: "empty", style: "font-size:11px" }, "Showing your most recent titles."));
+  if (data?.truncated) out.push(el("div", { class: "muted fine center-note" }, "Showing your most recent titles."));
   panel.replaceChildren(...out);
 }
 
@@ -187,11 +211,11 @@ function libraryCard(item, sectionKey, reload) {
 
   const actions = [];
   if (item.kind === "show" && next && sectionKey !== "upcoming") {
-    const b = el("button", { class: "btn primary", title: `Mark ${episodeCode(next)} watched` }, `✓ ${episodeCode(next)}`);
+    const b = iconBtn("btn primary", "check", episodeCode(next), { title: `Mark ${episodeCode(next)} watched` });
     b.addEventListener("click", () => runAction(b, { action: "watch", title: item.id, season: next.season, episode: next.number }, reload));
     actions.push(b);
   } else if (item.kind === "movie" && item.status !== "watched" && sectionKey !== "upcoming") {
-    const b = el("button", { class: "btn primary", title: "Mark watched" }, "✓ Watched");
+    const b = iconBtn("btn primary", "check", "Watched", { title: "Mark watched" });
     b.addEventListener("click", () => runAction(b, { action: "watch", title: item.id }, reload));
     actions.push(b);
   }
@@ -208,6 +232,7 @@ function libraryCard(item, sectionKey, reload) {
 // ---------------- Search ----------------
 function renderSearch(panel, initialQuery = lastQuery) {
   const input = el("input", { type: "search", placeholder: "Search shows and movies", value: initialQuery, "aria-label": "Search" });
+  const field = el("label", { class: "search-field" }, icon("search", 15), input);
   const kind = el("select", { "aria-label": "Type" },
     el("option", { value: "" }, "All"),
     el("option", { value: "show" }, "Shows"),
@@ -220,10 +245,10 @@ function renderSearch(panel, initialQuery = lastQuery) {
   };
   input.addEventListener("input", run);
   kind.addEventListener("change", run);
-  panel.replaceChildren(el("div", { class: "search-row" }, input, kind), results);
+  panel.replaceChildren(el("div", { class: "search-row" }, field, kind), results);
   input.focus();
   if (initialQuery) doSearch(initialQuery, "", results);
-  else results.replaceChildren(el("div", { class: "empty" }, linkSession ? "Search for the show or movie that's playing." : "Tip: select text on any page, right-click, and choose “Search Bingers”."));
+  else results.replaceChildren(emptyState("search", linkSession ? "Search for the show or movie that's playing." : "Tip: select text on any page, right-click, and choose “Search Bingers”."));
 }
 
 async function doSearch(q, kind, results) {
@@ -232,12 +257,12 @@ async function doSearch(q, kind, results) {
     results.replaceChildren();
     return;
   }
-  results.replaceChildren(el("div", { class: "empty" }, "Searching…"));
+  results.replaceChildren(skeleton(3, true));
   try {
     const data = await send("search", { q, kind: kind || undefined, limit: 10 });
     if (q !== lastQuery) return; // stale
     const items = data?.items || [];
-    if (!items.length) return results.replaceChildren(el("div", { class: "empty" }, `No matches for “${q}”.`));
+    if (!items.length) return results.replaceChildren(emptyState("search", `No matches for “${q}”.`));
     let statuses = {};
     try {
       statuses = await send("check", { refs: items.map((t) => t.id) });
@@ -254,8 +279,8 @@ async function doSearch(q, kind, results) {
 function searchCard(t, status, reload) {
   const sub = [t.kind === "show" ? "Show" : "Movie", t.year, (t.genres || []).slice(0, 2).join(", ")].filter(Boolean).join(" · ");
   const actions = [];
-  const add = (label, action, primary = false) => {
-    const b = el("button", { class: primary ? "btn primary" : "btn" }, label);
+  const add = (iconName, label, action, primary = false) => {
+    const b = iconBtn(primary ? "btn primary" : "btn", iconName, label);
     b.addEventListener("click", () => runAction(b, { ...action, title: t.id }, reload));
     actions.push(b);
   };
@@ -275,10 +300,10 @@ function searchCard(t, status, reload) {
     });
     actions.push(b);
   } else if (!inLibrary(status)) {
-    add("+ Follow", { action: "follow" }, true);
-    add("Later", { action: "for_later" });
+    add("plus", "Follow", { action: "follow" }, true);
+    add("clock", "Later", { action: "for_later" });
   } else if (t.kind === "movie" && status !== "watched") {
-    add("✓ Watched", { action: "watch" }, true);
+    add("check", "Watched", { action: "watch" }, true);
   }
   return el("div", { class: "card" },
     poster(t.poster),
@@ -368,7 +393,7 @@ async function renderLive(container) {
     const missing = everywhere ? [] : await missingEmbeds(tab.id);
     if (missing.length && !np) {
       const names = missing.map((o) => o.replace(/^https?:\/\//, "").replace(/\/\*$/, "")).join(", ");
-      const b = el("button", { class: "btn primary" }, "▶ Track the player");
+      const b = iconBtn("btn primary", "play", "Track the player");
       b.addEventListener("click", async () => {
         const ok = await chrome.permissions.request({ origins: missing }).catch(() => false);
         if (ok) {
@@ -401,7 +426,7 @@ async function renderLive(container) {
       ));
     }
   } else if (skipped) {
-    const b = el("button", { class: "btn" }, `▶ Track ${host} again`);
+    const b = iconBtn("btn", "play", `Track ${host} again`);
     b.addEventListener("click", async () => {
       await chrome.storage.sync.set({ excludedHosts: excludedHosts.filter((h) => h !== hostname) });
       toast(`Auto-tracking on ${host} again`, "ok");
@@ -421,9 +446,9 @@ async function renderLive(container) {
     };
     // Ask for the page's embedded player hosts in the same prompt (one click instead of two).
     const players = await pagePlayerOrigins(tab.id);
-    const b = el("button", { class: "btn primary", onclick: turnOn([pattern, ...players.filter((o) => o !== pattern)], `Auto-tracking on ${host}. Play something!`) }, `▶ Track ${host}`);
+    const b = iconBtn("btn primary", "play", `Track ${host}`, { onclick: turnOn([pattern, ...players.filter((o) => o !== pattern)], `Auto-tracking on ${host}. Play something!`) });
     const all = el("button", { class: "link small", onclick: turnOn(ALL_SITES, "Auto-tracking on all websites") }, "or every website");
-    parts.push(el("div", { class: "site-row" }, el("span", { class: "muted" }, "Mark what you watch here automatically?"), el("span", {}, b, " ", all)));
+    parts.push(el("div", { class: "site-row offer" }, el("span", { class: "muted" }, "Mark what you watch here automatically?"), el("span", { class: "offer-actions" }, b, all)));
   }
   container.replaceChildren(...parts);
 }
@@ -440,7 +465,8 @@ function nowPlayingCard(np, container) {
   };
   const title = np.label || np.detected || `Something on ${np.host}`;
   let status = STATE_TEXT[np.state] || np.state;
-  if (np.state === "tracking" && np.progress) status += ` · ${Math.round(np.progress)}%`;
+  const pct = np.state === "tracking" && np.progress ? Math.max(0, Math.min(100, Math.round(np.progress))) : null;
+  if (pct != null) status += ` · ${pct}%`;
   if (np.state === "tracking" && np.guessed) status += " · guessed your next episode";
   if (np.state === "error" && np.message) status = np.message;
 
@@ -455,7 +481,7 @@ function nowPlayingCard(np, container) {
       class: known && !np.guessed ? "btn ep-btn" : "btn primary ep-btn",
       title: known ? "Wrong episode? Change the season and episode" : "Set the season and episode",
       "aria-expanded": "false",
-    }, known ? `${current} ✎` : "Choose episode");
+    }, known ? [current, icon("pencil", 12)] : "Choose episode");
     const toggle = (open) => {
       picker.hidden = !open;
       choose.setAttribute("aria-expanded", String(open));
@@ -470,9 +496,18 @@ function nowPlayingCard(np, container) {
     buttons.push(choose);
     toggle(!known);
   }
+  // Same guesses as the in-page notice: one click tracks it.
+  const guesses = np.state === "unknown" ? (np.suggestions || []) : [];
+  guesses.forEach((name, index) => {
+    buttons.push(el("button", {
+      class: index === 0 ? "btn primary" : "btn",
+      title: `Track ${name}`,
+      onclick: () => act({ action: "pick", index }, `Tracking ${name}`),
+    }, `Track ${name}`));
+  });
   if (["unknown", "tracking", "error"].includes(np.state) || np.needsEpisode) {
     buttons.push(el("button", {
-      class: np.state === "unknown" ? "btn primary" : "btn",
+      class: np.state === "unknown" && !guesses.length ? "btn primary" : "btn",
       onclick: () => {
         linkSession = np.sessionId;
         lastQuery = np.detected || "";
@@ -492,12 +527,20 @@ function nowPlayingCard(np, container) {
     }, "Report"));
   }
   if (np.state === "tracking") buttons.push(el("button", { class: "btn", onclick: () => act({ action: "ignore" }, "Won't track this one") }, "Stop"));
-  if (np.state === "watched") buttons.push(el("button", { class: "btn", onclick: () => act({ action: "undo" }, "Undone") }, "Undo"));
+  if (np.state === "watched") buttons.push(iconBtn("btn", "undo", "Undo", { onclick: () => act({ action: "undo" }, "Undone") }));
 
-  return el("div", { class: "now" },
-    el("div", { class: "now-top" }, el("span", { class: "eyebrow" }, `Now playing · ${np.host.replace(/^www\./, "")}`)),
+  // Progress toward the end of the video; full once marked watched.
+  const fill = np.state === "watched" ? 100 : pct;
+  const bar = fill != null
+    ? el("div", { class: "now-bar", role: "progressbar", "aria-label": "Watched so far", "aria-valuemin": "0", "aria-valuemax": "100", "aria-valuenow": String(fill) },
+      el("span", { style: `width:${fill}%` }))
+    : null;
+
+  return el("div", { class: `now state-${np.state}` },
+    el("div", { class: "now-top" }, el("span", { class: "eyebrow" }, el("span", { class: "state-dot" }), `Now playing · ${np.host.replace(/^www\./, "")}`)),
     el("div", { class: "now-title", title }, title),
     el("div", { class: "now-sub" }, status),
+    bar,
     buttons.length ? el("div", { class: "now-actions" }, buttons) : null,
     picker
   );

@@ -1,6 +1,8 @@
-import { send, el } from "../lib/ui.js";
+import { send, el, toast } from "../lib/ui.js";
 import { INTEGRATIONS_URL } from "../lib/config.js";
 import { ALL_SITES, isAllSitesPattern, siteLabel } from "../lib/sites.js";
+
+const saved = () => toast("Saved", "ok");
 
 const body = document.getElementById("account-body");
 const badge = document.getElementById("show-badge");
@@ -10,7 +12,7 @@ send("redirectUrl").then((u) => (document.getElementById("redirect-url").textCon
 
 // ---- badge setting (default on) ----
 chrome.storage.sync.get({ showBadge: true }).then(({ showBadge }) => (badge.checked = showBadge));
-badge.addEventListener("change", () => chrome.storage.sync.set({ showBadge: badge.checked }));
+badge.addEventListener("change", () => chrome.storage.sync.set({ showBadge: badge.checked }).then(saved));
 
 function message(text, kind = "") {
   return el("div", { class: `msg ${kind}`, role: "status" }, text);
@@ -109,10 +111,10 @@ chrome.storage.sync.get(TRACK_DEFAULTS).then((s) => {
   minMinutes.value = String(s.minMinutes);
   confirmMark.checked = s.confirmBeforeMark;
 });
-autoTrack.addEventListener("change", () => chrome.storage.sync.set({ autoTrack: autoTrack.checked }));
-threshold.addEventListener("change", () => chrome.storage.sync.set({ threshold: Number(threshold.value) }));
-minMinutes.addEventListener("change", () => chrome.storage.sync.set({ minMinutes: Number(minMinutes.value) }));
-confirmMark.addEventListener("change", () => chrome.storage.sync.set({ confirmBeforeMark: confirmMark.checked }));
+autoTrack.addEventListener("change", () => chrome.storage.sync.set({ autoTrack: autoTrack.checked }).then(saved));
+threshold.addEventListener("change", () => chrome.storage.sync.set({ threshold: Number(threshold.value) }).then(saved));
+minMinutes.addEventListener("change", () => chrome.storage.sync.set({ minMinutes: Number(minMinutes.value) }).then(saved));
+confirmMark.addEventListener("change", () => chrome.storage.sync.set({ confirmBeforeMark: confirmMark.checked }).then(saved));
 
 const allSites = document.getElementById("all-sites");
 const excludedEl = document.getElementById("excluded");

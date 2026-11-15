@@ -1,0 +1,61 @@
+// Fake `chrome` API so the popup and Settings pages can be opened in a normal browser tab
+// for UI work: serve the repo root (python -m http.server 8765) and open
+// http://localhost:8765/tests/preview/popup.html?state=tracking
+// ?state= tracking | watched | unknown | identifying | none   ?signedout=1   ?empty=1
+const q = new URLSearchParams(location.search);
+const state = q.get("state") || "tracking";
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+const watchlist = q.has("empty") ? { sections: {} } : {
+  sections: {
+    watch_next: { count: 3, items: [
+      { id: "1", kind: "show", title: "Severance", url: "#", progress: { next: { season: 2, number: 7, title: "Chikhai Bardo" } } },
+      { id: "2", kind: "show", title: "The Bear", url: "#", progress: { next: { season: 3, number: 2, title: "Next" } } },
+      { id: "3", kind: "show", title: "Shōgun", url: "#", progress: { next: { season: 1, number: 5, title: "Broken to the Fist" } } },
+    ] },
+    to_watch: { count: 1, items: [{ id: "4", kind: "movie", title: "Dune: Part Two", year: 2024, runtime_minutes: 166, url: "#" }] },
+  },
+};
+const search = { items: [
+  { id: "5", kind: "show", title: "Breaking Bad", year: 2008, genres: ["Drama", "Crime"], poster: null },
+  { id: "6", kind: "show", title: "Better Call Saul", year: 2015, genres: ["Drama"], poster: null },
+  { id: "7", kind: "movie", title: "El Camino: A Breaking Bad Movie", year: 2019, genres: ["Crime", "Thriller"], poster: null },
+] };
+
+const handlers = {
+  getSession: () => (q.has("signedout") ? { signedIn: false, oauthConfigured: true } : { signedIn: true, mode: "pat", profile: { handle: "viewer" } }),
+  watchlist: async () => (await wait(700), watchlist),
+  search: async () => (await wait(600), search),
+  check: () => ({ 5: { status: "completed" } }),
+  actions: async () => (await wait(900), { results: [{ status: "ok" }] }),
+  trackerAction: () => ({}),
+  syncTracker: () => ({}),
+  trackedSites: () => ["https://www.netflix.com/*", "https://shahid.mbc.net/*"],
+  redirectUrl: () => "https://abcdefghijklmnop.chromiumapp.org/",
+};
+
+const nowPlaying = state === "none" ? {} : { 1: {
+  sessionId: "s1", host: "www.netflix.com", state, kind: "show",
+  label: state === "unknown" || state === "identifying" ? null : "Severance",
+  detected: "Severance", season: 2, episode: 7, progress: 41, suggestions: state === "unknown" ? ["Severance"] : [],
+} };
+
+const store = (initial) => ({
+  get: async (k) => (k && typeof k === "object" && !Array.isArray(k) ? { ...k, ...initial } : { ...initial }),
+  set: async () => {}, remove: async () => {},
+});
+
+window.chrome = {
+  runtime: {
+    lastError: undefined,
+    sendMessage(msg, cb) {
+      Promise.resolve(handlers[msg.type]?.(msg.payload)).then((data) => cb({ ok: true, data: data ?? {} }));
+    },
+    getManifest: () => ({ version: "preview" }),
+    openOptionsPage: () => {},
+  },
+  tabs: { query: async () => [{ id: 1, url: "https://www.netflix.com/watch/1" }], create: () => {}, sendMessage: async () => null },
+  storage: { session: store({ nowPlaying }), sync: store({}), local: store({}), onChanged: { addListener() {} } },
+  permissions: { contains: async ({ origins }) => origins.some((o) => o.includes("netflix")), request: async () => true, remove: async () => true, onAdded: { addListener() {} }, onRemoved: { addListener() {} } },
+  scripting: { executeScript: async () => [] },
+};

@@ -50,18 +50,29 @@
   const CSS = `
     :host { all: initial; }
     .wrap { ${THEME} position: fixed; right: 18px; bottom: 18px; z-index: 2147483646; font: 13px/1.35 "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--text); -webkit-font-smoothing: antialiased; }
-    .pill { display: flex; align-items: center; gap: 10px; background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: 6px 8px 6px 6px; box-shadow: 0 10px 30px rgba(0,0,0,.4); max-width: 420px; }
-    .logo { width: 30px; height: 30px; border-radius: 999px; background: var(--panel-2); flex: none; display: grid; place-items: center; cursor: pointer; border: 0; padding: 0; }
-    .logo::after { content: ""; border-left: 9px solid var(--text); border-top: 6px solid transparent; border-bottom: 6px solid transparent; margin-left: 3px; }
-    .logo { position: relative; }
+    .pill { display: flex; align-items: center; gap: 10px; background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: 6px 8px 6px 6px; box-shadow: 0 10px 30px rgba(0,0,0,.4); max-width: 440px; animation: in .22s ease-out both; }
+    @keyframes in { from { opacity: 0; transform: translateY(6px) scale(.98); } to { opacity: 1; transform: none; } }
+    .logo { width: 30px; height: 30px; border-radius: 999px; background: var(--panel-2); color: var(--text); flex: none; display: grid; place-items: center; cursor: pointer; border: 0; padding: 0; position: relative; transition: background .15s; }
+    .logo:hover { background: var(--line); }
+    .logo svg { width: 13px; height: 13px; margin-left: 2px; }
     .logo::before { content: ""; position: absolute; right: 1px; bottom: 1px; width: 9px; height: 9px; border-radius: 50%; background: var(--ok); border: 2px solid var(--bg); }
+    .logo.mini { width: 40px; height: 40px; background: var(--bg); border: 1px solid var(--line); box-shadow: 0 8px 24px rgba(0,0,0,.4); animation: in .22s ease-out both; }
+    .logo.mini svg { width: 15px; height: 15px; }
+    .spin { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--text); animation: spin .7s linear infinite; flex: none; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .msg.loading { display: flex; align-items: center; gap: 8px; }
+    button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    button.b.busy { color: transparent; position: relative; }
+    button.b.busy::after { content: ""; position: absolute; inset: 0; margin: auto; width: 11px; height: 11px; border-radius: 50%; border: 2px solid var(--muted); border-top-color: transparent; animation: spin .7s linear infinite; }
+    button.b.p.busy::after { border-color: var(--accent-ink); border-top-color: transparent; }
+    @media (prefers-reduced-motion: reduce) { * { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
     .info { min-width: 0; }
     .label { font-size: 11px; color: var(--muted); font-weight: 700; letter-spacing: -0.02em; text-transform: lowercase; }
     .status { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .status.done { color: var(--ok); }
     .status.in { color: var(--text); }
     .actions { display: flex; gap: 5px; margin-left: 2px; align-items: center; }
-    button.b { font: inherit; font-size: 12px; font-weight: 600; color: var(--text); background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; cursor: pointer; white-space: nowrap; }
+    button.b { font: inherit; font-size: 12px; font-weight: 600; color: var(--text); background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; cursor: pointer; white-space: nowrap; transition: background .15s, filter .15s; }
     button.b:hover:not(:disabled) { background: var(--panel-2); }
     button.b.p { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
     button.b.p:hover:not(:disabled) { background: var(--accent); filter: brightness(.9); }
@@ -133,7 +144,7 @@
 
     if (await isCollapsed()) return paintCollapsed(ref);
 
-    paint(h("div", { class: "pill" }, logoButton(ref), h("div", { class: "msg" }, "Checking Bingers\u2026")));
+    paint(h("div", { class: "pill" }, logoButton(ref), h("div", { class: "msg loading" }, h("span", { class: "spin", "aria-hidden": "true" }), "Checking Bingers\u2026")));
 
     let title = null;
     let status = "unknown";
@@ -154,20 +165,35 @@
     renderFull(ref, title, status);
   }
 
+  // Play mark (same shape as the toolbar icon), drawn with createElementNS.
+  function playMark() {
+    const NS = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(NS, "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("aria-hidden", "true");
+    const p = document.createElementNS(NS, "path");
+    p.setAttribute("d", "M6 3.5v17l15-8.5z");
+    p.setAttribute("fill", "currentColor");
+    p.setAttribute("stroke", "currentColor");
+    p.setAttribute("stroke-width", "2");
+    p.setAttribute("stroke-linejoin", "round");
+    svg.append(p);
+    return svg;
+  }
+
   function logoButton(ref) {
-    return h("button", { class: "logo", title: "Cue for Bingers \u2014 click to minimise", "aria-label": "Minimise Bingers badge", onclick: async () => { await setCollapsed(true); paintCollapsed(ref); } });
+    return h("button", { class: "logo", title: "Cue for Bingers \u2014 click to minimise", "aria-label": "Minimise Bingers badge", onclick: async () => { await setCollapsed(true); paintCollapsed(ref); } }, playMark());
   }
   function closeButton(ref) {
     return h("button", { class: "x", title: "Minimise", "aria-label": "Minimise", onclick: async () => { await setCollapsed(true); paintCollapsed(ref); } }, "\u00d7");
   }
   function paintCollapsed(ref) {
-    paint(h("button", { class: "logo", style: "width:38px;height:38px;background:#0c0b0b;border:1px solid #2c2826;box-shadow:0 8px 24px rgba(0,0,0,.4)", title: "Show Cue for Bingers", "aria-label": "Show Bingers badge", onclick: async () => { await setCollapsed(false); load(ref); } }));
+    paint(h("button", { class: "logo mini", title: "Show Cue for Bingers", "aria-label": "Show Bingers badge", onclick: async () => { await setCollapsed(false); load(ref); } }, playMark()));
   }
 
   async function act(button, action, ref) {
     button.disabled = true;
-    const original = button.textContent;
-    button.textContent = "\u2026";
+    button.classList.add("busy");
     try {
       const res = await send("actions", { actions: [action] });
       const r = res?.results?.[0];
@@ -175,7 +201,7 @@
       load(ref);
     } catch (e) {
       button.disabled = false;
-      button.textContent = original;
+      button.classList.remove("busy");
       const pill = root?.querySelector(".pill");
       pill?.querySelector(".msg.err")?.remove();
       pill?.append(h("div", { class: "msg err" }, e.message));

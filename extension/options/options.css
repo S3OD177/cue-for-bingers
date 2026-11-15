@@ -38,3 +38,49 @@ select { background: var(--bg); color: var(--text); border: 1px solid var(--line
 .site .on { color: var(--ok); font-size: 12px; }
 .site button { font-size: 12px; padding: 5px 12px; }
 .sites[hidden] { display: none; }
+
+/* ---------- polish ---------- */
+.box { border: 1px solid var(--line); }
+.box h2 { font-size: 16px; letter-spacing: -0.01em; }
+.hero h1 { font-weight: 800; }
+
+/* checkboxes inside .toggle render as switches */
+.toggle { align-items: center; justify-content: space-between; flex-direction: row-reverse; gap: 16px; padding: 4px 0; }
+.toggle > span { flex: 1; }
+.toggle input[type="checkbox"] {
+  appearance: none; -webkit-appearance: none; margin: 0; flex: none; cursor: pointer;
+  width: 38px; height: 22px; border-radius: var(--pill); background: var(--line); position: relative;
+  transition: background .18s;
+}
+.toggle input[type="checkbox"]::after {
+  content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%;
+  background: var(--text); transition: transform .18s;
+}
+.toggle input[type="checkbox"]:checked { background: var(--ok); }
+.toggle input[type="checkbox"]:checked::after { transform: translateX(16px); background: var(--bg); }
+.toggle input[type="checkbox"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.allsites { align-items: flex-start; }
+.allsites input[type="checkbox"] { margin-top: 2px; }
+
+/* selects with a custom arrow */
+select {
+  appearance: none; -webkit-appearance: none; cursor: pointer; padding-right: 32px;
+  background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: calc(100% - 17px) 50%, calc(100% - 12px) 50%;
+  background-size: 5px 5px; background-repeat: no-repeat;
+}
+select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.grid2 label { font-size: 12px; }
+
+/* site list */
+.site { border: 1px solid var(--line); transition: border-color .15s; }
+.site:hover { border-color: var(--muted); }
+.site .on { display: inline-flex; align-items: center; gap: 4px; margin-left: 4px; }
+
+.signed-in .status-dot { box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 25%, transparent); }
+details summary { list-style: none; display: flex; align-items: center; gap: 8px; }
+details summary::-webkit-details-marker { display: none; }
+details summary::before { content: ""; width: 6px; height: 6px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(-45deg); transition: transform .15s; }
+details[open] summary::before { transform: rotate(45deg); }
+
+@media (max-width: 520px) { .grid2 { grid-template-columns: 1fr; } }

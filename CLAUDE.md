@@ -71,5 +71,9 @@ tests/              run.mjs (auth/API, mocked), parse.test.cjs (title parser), e
   adjusting): `tests/e2e/run.py` (single site), `tests/e2e/run_all.py` (all-sites mode). Each starts
   a mock Bingers API (`mockapi.py`) and a test video site. The test video `ep.mp4` isn't included;
   make any 20–30 s mp4 and put it in `tests/e2e/site/`.
+- UI preview without loading the extension: `python -m http.server 8765` in the repo root, then open
+  `http://localhost:8765/tests/preview/popup.html?state=tracking` (also `watched`, `unknown`, `none`,
+  `?empty=1`, `?signedout=1`) or `tests/preview/options.html`. `mock-chrome.js` fakes the `chrome` API.
+  The preview HTML files are copies of the real ones, so re-copy them if you change the page markup.
 - Package for the store (PowerShell): `Compress-Archive -Path extension\* -DestinationPath cue-for-bingers.zip -Force`
 - Bump `version` in `extension/manifest.json` for every store upload.
