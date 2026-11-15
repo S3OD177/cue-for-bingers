@@ -126,6 +126,29 @@ async function setNowPlaying(tabId, value) {
   if (value) nowPlaying[tabId] = value;
   else delete nowPlaying[tabId];
   await chrome.storage.session.set({ nowPlaying });
+  await showOnIcon(tabId, value).catch(() => {});
+}
+
+// Mirror the state on the toolbar icon for that tab, so it's visible without opening the popup.
+const ICON_STATES = {
+  tracking: { text: "▶", color: "#5fd38d", title: (v) => `Cue: tracking ${v.label}` },
+  watched: { text: "✓", color: "#5fd38d", title: (v) => `Cue: marked ${v.label} watched` },
+  confirm: { text: "?", color: "#f2c14e", title: (v) => `Cue: finished ${v.label}? Open to confirm` },
+  unknown: { text: "?", color: "#f2c14e", title: () => "Cue: couldn't tell what's playing. Open to pick it" },
+  error: { text: "!", color: "#ef6461", title: (v) => `Cue: ${v.message || "something went wrong"}` },
+};
+
+async function showOnIcon(tabId, value) {
+  const st = value && ICON_STATES[value.state];
+  if (!st) {
+    await chrome.action.setBadgeText({ tabId, text: "" });
+    await chrome.action.setTitle({ tabId, title: chrome.runtime.getManifest().action?.default_title || "Cue for Bingers" });
+    return;
+  }
+  await chrome.action.setBadgeText({ tabId, text: st.text });
+  await chrome.action.setBadgeBackgroundColor({ tabId, color: st.color });
+  await chrome.action.setBadgeTextColor?.({ tabId, color: "#0c0b0b" });
+  await chrome.action.setTitle({ tabId, title: st.title(value) });
 }
 
 function publicState(s) {
