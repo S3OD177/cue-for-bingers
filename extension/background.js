@@ -86,6 +86,7 @@ const handlers = {
   // ---- auto-tracking ----
   track: (p, sender) => tracker.handleTrack(p, sender),
   trackerAction: (p) => tracker.handleTrackerAction(p),
+  trackerEmbeds: (p, sender) => tracker.handleEmbeds(p, sender),
   trackedSites: () => tracker.trackedOrigins(),
   async syncTracker() {
     const origins = await tracker.syncTrackerScripts();
@@ -95,7 +96,7 @@ const handlers = {
 };
 
 // Content scripts run on third-party pages, so they only get a narrow set of operations.
-const CONTENT_SCRIPT_ALLOWED = new Set(["getSession", "check", "title", "actions", "openOptions", "track", "trackerAction"]);
+const CONTENT_SCRIPT_ALLOWED = new Set(["getSession", "check", "title", "actions", "openOptions", "track", "trackerAction", "trackerEmbeds"]);
 // In-page notice buttons may only do these; linking/episode fixes happen in the popup.
 const CONTENT_TRACKER_ACTIONS = new Set(["ignore", "confirm", "undo"]);
 

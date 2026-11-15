@@ -134,27 +134,38 @@ async function renderSites() {
   }
   const everywhere = await chrome.permissions.contains({ origins: ALL_SITES });
   allSites.checked = everywhere;
-  sitesEl.hidden = everywhere;
   granted = granted.filter((o) => !isAllSitesPattern(o));
 
   const { excludedHosts = [] } = await chrome.storage.sync.get({ excludedHosts: [] });
+  const { seenHosts = [] } = await chrome.storage.local.get("seenHosts");
   excludedEl.replaceChildren();
-  if (everywhere && excludedHosts.length) {
-    excludedEl.append("Skipped sites: ");
-    for (const h of excludedHosts) {
-      excludedEl.append(el("button", {
-        class: "btn",
-        title: `Track ${h} again`,
-        onclick: async () => {
-          await chrome.storage.sync.set({ excludedHosts: excludedHosts.filter((x) => x !== h) });
-          renderSites();
-        },
-      }, `${h} \u00d7`));
-    }
-  }
+
+  // Listed: the popular sites, any site turned on, and sites where Cue has tracked something
+  // (or that were skipped), so sites added from the popup or "all websites" show up too.
+  const hostOf = (o) => o.replace(/^https?:\/\//, "").replace(/\/\*$/, "");
+  const all = [];
+  const add = (o) => {
+    if (!all.some((x) => hostOf(x) === hostOf(o))) all.push(o);
+  };
+  POPULAR_SITES.forEach((s) => add(s.origin));
+  granted.forEach(add);
+  [...seenHosts, ...excludedHosts].forEach((h) => add(`https://${h}/*`));
+
   const rows = [];
-  const all = [...POPULAR_SITES.map((s) => s.origin), ...granted.filter((o) => !POPULAR_SITES.some((s) => s.origin === o))];
   for (const origin of all) {
+    const host = hostOf(origin);
+    if (everywhere) {
+      // With "all websites" on, every site is on unless it was skipped.
+      const skipped = excludedHosts.includes(host);
+      const btn = el("button", { class: skipped ? "btn primary" : "btn" }, skipped ? "Track again" : "Skip");
+      btn.addEventListener("click", async () => {
+        const next = skipped ? excludedHosts.filter((h) => h !== host) : [...new Set([...excludedHosts, host])];
+        await chrome.storage.sync.set({ excludedHosts: next });
+        renderSites();
+      });
+      rows.push(el("div", { class: "site" }, el("span", {}, siteLabel(origin), skipped ? el("span", { class: "muted" }, " skipped") : el("span", { class: "on" }, " \u25cf on")), btn));
+      continue;
+    }
     const on = granted.includes(origin);
     const btn = el("button", { class: on ? "btn" : "btn primary" }, on ? "Turn off" : "Turn on");
     btn.addEventListener("click", async () => {
@@ -170,3 +181,6 @@ async function renderSites() {
 renderSites();
 chrome.permissions.onAdded.addListener(renderSites);
 chrome.permissions.onRemoved.addListener(renderSites);
+chrome.storage.onChanged.addListener((c, area) => {
+  if ((area === "local" && c.seenHosts) || (area === "sync" && c.excludedHosts)) renderSites();
+});

@@ -87,6 +87,13 @@ main { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
 .now-title { font-weight: 700; font-size: 14px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .now-sub { color: var(--muted); font-size: 12px; margin-top: 1px; }
 .now-actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.ep-btn { font-variant-numeric: tabular-nums; }
+.ep-picker { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; margin-top: 8px; padding: 8px; background: var(--panel-2); border-radius: 10px; }
+.ep-hint { flex-basis: 100%; font-size: 11px; color: var(--muted); }
+.ep-picker[hidden] { display: none; }
+.ep-field { display: flex; flex-direction: column; gap: 3px; font-size: 11px; color: var(--muted); }
+.ep-field input { width: 72px; background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; font: inherit; font-size: 13px; }
+.ep-field input:focus { outline: none; border-color: var(--accent); }
 .site-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; }
 .live-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); margin-right: 6px; }
 .link.small { font-size: 12px; color: var(--muted); }

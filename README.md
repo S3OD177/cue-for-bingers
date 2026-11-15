@@ -63,6 +63,21 @@ Each user can also paste **their own** personal access token in Settings. Until 
 6. **Bump `version`** in `manifest.json` if needed, remove any `key`, then build the zip: `cd extension && zip -r ../cue-for-bingers.zip . -x '.*'`
 7. Upload the new zip to the draft, fill in the listing and privacy tabs from `store/STORE_LISTING.md`, and submit for review (usually a few days).
 
+## Site reports (one-click "Suggest it" / "Report")
+
+Users can send you a new streaming site, or a page Cue couldn't read, in one click. It goes to a
+Google Form you own, and each report becomes a row in its Sheet. Users don't sign in to anything.
+The buttons stay hidden until this is set up:
+
+1. Create a Google Form with three **Short answer** questions: `Subject`, `Details` (Paragraph), `Version`.
+   In Settings › Responses, turn **off** "Collect email addresses" and "Limit to 1 response".
+2. Responses tab › link to Sheets (optional), and ⋮ › "Get email notifications for new responses".
+3. ⋮ › **Get pre-filled link**, type `a`, `b`, `c` in the three fields, click **Get link**, copy it.
+   It looks like `https://docs.google.com/forms/d/e/<FORM-ID>/viewform?entry.111=a&entry.222=b&entry.333=c`.
+4. In `extension/lib/config.js`, set `REPORT_FORM.action` to the same URL with `viewform` changed to
+   `formResponse` (and no `?…`), and `fields` to `entry.111` (subject), `entry.222` (details),
+   `entry.333` (version).
+
 ## Limits and things to know
 
 - **Plan:** the Bingers API needs the **Legend or Icon** plan. Other accounts get a 403, and the extension says so.

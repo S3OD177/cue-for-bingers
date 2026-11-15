@@ -72,4 +72,12 @@ t("MBC Shahid brand suffix is stripped", () => {
   assert.equal(parseText("Watch Detective Knight - MBC Shahid").title, "Detective Knight");
   assert.equal(parseText("شاهد فيلم راعي الأجرب - MBC شاهد").title, "راعي الأجرب");
 });
+t("Shoof Live episode page (player is an embedded iframe)", () => {
+  const r = parseMediaInfo({
+    heading: "مسلسل الفريق الأول الحلقة 1 مترجمة",
+    docTitle: "مسلسل الفريق الأول الحلقة 1 مترجمة - شوف لايف",
+    jsonld: [{ "@type": "VideoObject", name: "مسلسل الفريق الأول الحلقة 1 مترجمة" }],
+  });
+  assert.equal(r.title, "الفريق الأول"); assert.equal(r.season, null); assert.equal(r.episode, 1);
+});
 console.log(`\n${n} parser tests passed`);

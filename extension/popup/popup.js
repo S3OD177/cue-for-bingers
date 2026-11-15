@@ -1,12 +1,26 @@
 import { send, el, statusLabel, inLibrary, episodeParts, episodeCode, toast, describeResult } from "../lib/ui.js";
 import { originPattern, ALL_SITES, POPULAR_SITES } from "../lib/sites.js";
-import { SUPPORT_EMAIL, supportEmailSet } from "../lib/config.js";
+import { REPORT_FORM, reportsEnabled } from "../lib/config.js";
 
-// Opens a draft email to the developer. Nothing is sent unless the user sends it.
-function emailDeveloper(subject, lines) {
-  const v = chrome.runtime.getManifest().version;
-  const body = [...lines, "", `Cue for Bingers ${v}`, "", "Anything else you'd like to add:", ""].join("\n");
-  chrome.tabs.create({ url: `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}` });
+// One click sends a short report to the developer's Google Form (rows land in their Sheet).
+// No sign-in for the user; only what's listed here is sent, and only when they click.
+async function reportToDeveloper(subject, lines, button) {
+  const f = REPORT_FORM.fields;
+  const body = new URLSearchParams({
+    [f.subject]: subject,
+    [f.details]: lines.join("\n"),
+    [f.version]: chrome.runtime.getManifest().version,
+  });
+  if (button) button.disabled = true;
+  try {
+    // Google Forms doesn't send CORS headers, so the response can't be read ("no-cors").
+    await fetch(REPORT_FORM.action, { method: "POST", mode: "no-cors", body });
+    toast("Sent to the developer. Thanks!", "ok");
+    if (button) button.textContent = "Sent ✓";
+  } catch {
+    toast("Couldn't send it. Check your connection and try again.", "err");
+    if (button) button.disabled = false;
+  }
 }
 const isKnownSite = (pattern) => POPULAR_SITES.some((s) => s.origin === pattern);
 
@@ -266,6 +280,41 @@ const STATE_TEXT = {
   error: "Something went wrong",
 };
 
+// Embedded player hosts the tracker found in this tab that aren't turned on yet.
+async function missingEmbeds(tabId) {
+  const { embeds = {} } = await chrome.storage.session.get("embeds");
+  const out = [];
+  for (const o of embeds[tabId] || []) {
+    if (!(await chrome.permissions.contains({ origins: [o] }).catch(() => true))) out.push(o);
+  }
+  return out;
+}
+
+// Before the site is on, the popup can still look at the top page (activeTab) and list the
+// iframes that look like video players.
+async function pagePlayerOrigins(tabId) {
+  try {
+    const [r] = await chrome.scripting.executeScript({
+      target: { tabId, frameIds: [0] },
+      func: () =>
+        [...document.querySelectorAll("iframe[src]")]
+          .filter((f) => {
+            const r = f.getBoundingClientRect();
+            return f.allowFullscreen || /fullscreen/.test(f.getAttribute("allow") || "") || f.hasAttribute("webkitallowfullscreen") || (r.width >= 320 && r.height >= 180);
+          })
+          .map((f) => f.src),
+    });
+    const set = new Set();
+    for (const src of r?.result || []) {
+      const p = originPattern(String(src));
+      if (p && !p.startsWith("https://api.bingers.app")) set.add(p);
+    }
+    return [...set].slice(0, 4);
+  } catch {
+    return [];
+  }
+}
+
 async function renderLive(container) {
   const tab = currentTab;
   const pattern = tab?.url ? originPattern(tab.url) : null;
@@ -293,11 +342,26 @@ async function renderLive(container) {
       el("span", {}, el("span", { class: "live-dot" }), `Auto-tracking on ${host}`),
       el("button", { class: "link small", onclick: turnOff }, everywhere ? "Skip this site" : "Turn off")
     ));
+    // The video may play in an embedded player from another host, which needs its own approval.
+    const missing = everywhere ? [] : await missingEmbeds(tab.id);
+    if (missing.length && !np) {
+      const names = missing.map((o) => o.replace(/^https?:\/\//, "").replace(/\/\*$/, "")).join(", ");
+      const b = el("button", { class: "btn primary" }, "▶ Track the player");
+      b.addEventListener("click", async () => {
+        const ok = await chrome.permissions.request({ origins: missing }).catch(() => false);
+        if (ok) {
+          await send("syncTracker").catch(() => {});
+          toast("Player turned on. Press play again if it doesn't pick it up.", "ok");
+        }
+        renderLive(container);
+      });
+      parts.push(el("div", { class: "site-row" }, el("span", { class: "muted" }, `The video plays from ${names}`), b));
+    }
     // A site we don't list yet: let the user tell the developer about it.
-    if (supportEmailSet() && !isKnownSite(pattern)) {
+    if (reportsEnabled() && !isKnownSite(pattern)) {
       parts.push(el("div", { class: "site-row" },
         el("span", { class: "muted small" }, `${host} isn't on Cue's list of streaming sites yet.`),
-        el("button", { class: "link small", onclick: () => emailDeveloper(`Add ${host} to Cue`, [`Please add this streaming site: ${host}`]) }, "Suggest it")
+        el("button", { class: "link small", onclick: (e) => reportToDeveloper(`Add ${host} to Cue`, [`Please add this streaming site: ${host}`], e.currentTarget) }, "Suggest it")
       ));
     }
   } else if (skipped) {
@@ -319,7 +383,9 @@ async function renderLive(container) {
       }
       renderLive(container);
     };
-    const b = el("button", { class: "btn primary", onclick: turnOn([pattern], `Auto-tracking on ${host}. Play something!`) }, `▶ Track ${host}`);
+    // Ask for the page's embedded player hosts in the same prompt (one click instead of two).
+    const players = await pagePlayerOrigins(tab.id);
+    const b = el("button", { class: "btn primary", onclick: turnOn([pattern, ...players.filter((o) => o !== pattern)], `Auto-tracking on ${host}. Play something!`) }, `▶ Track ${host}`);
     const all = el("button", { class: "link small", onclick: turnOn(ALL_SITES, "Auto-tracking on all websites") }, "or every website");
     parts.push(el("div", { class: "site-row" }, el("span", { class: "muted" }, "Mark what you watch here automatically?"), el("span", {}, b, " ", all)));
   }
@@ -344,11 +410,29 @@ function nowPlayingCard(np, container) {
 
   const buttons = [];
   const isShow = np.kind !== "movie";
-  if (np.label && isShow && ["tracking", "confirm", "unknown"].includes(np.state)) {
-    buttons.push(
-      el("button", { class: "btn", title: "Previous episode", onclick: () => act({ action: "episode", delta: -1 }) }, "Ep −"),
-      el("button", { class: "btn", title: "Next episode", onclick: () => act({ action: "episode", delta: 1 }) }, "Ep +")
-    );
+  let picker = null;
+  // A show is identified (np.label), so its season and episode can be set by hand.
+  if (np.label && isShow && ["tracking", "confirm", "unknown", "watched"].includes(np.state)) {
+    const known = np.episode != null;
+    const current = known ? `S${String(np.season ?? 1).padStart(2, "0")} · E${String(np.episode).padStart(2, "0")}` : null;
+    const choose = el("button", {
+      class: known && !np.guessed ? "btn ep-btn" : "btn primary ep-btn",
+      title: known ? "Wrong episode? Change the season and episode" : "Set the season and episode",
+      "aria-expanded": "false",
+    }, known ? `${current} ✎` : "Choose episode");
+    const toggle = (open) => {
+      picker.hidden = !open;
+      choose.setAttribute("aria-expanded", String(open));
+      if (open) {
+        const input = picker.querySelector("input[name=episode]");
+        input?.focus();
+        input?.select();
+      }
+    };
+    picker = episodePicker(np, act, () => toggle(false));
+    choose.addEventListener("click", () => toggle(picker.hidden));
+    buttons.push(choose);
+    toggle(!known);
   }
   if (["unknown", "tracking", "error"].includes(np.state) || np.needsEpisode) {
     buttons.push(el("button", {
@@ -360,16 +444,15 @@ function nowPlayingCard(np, container) {
       },
     }, np.state === "unknown" ? "Pick title" : "Wrong title?"));
   }
-  if (supportEmailSet() && ["unknown", "error"].includes(np.state)) {
+  if (reportsEnabled() && ["unknown", "error"].includes(np.state)) {
     buttons.push(el("button", {
       class: "btn",
-      title: "Email the developer so Cue can learn this site",
-      onclick: () => emailDeveloper(`Cue couldn't read ${np.host}`, [
+      title: "Send this site to the developer so Cue can learn it",
+      onclick: (e) => reportToDeveloper(`Cue couldn't read ${np.host}`, [
         `Site: ${np.host}`,
         `What Cue saw: ${np.detected || "(nothing)"}`,
         `Status: ${np.state}${np.message ? ` (${np.message})` : ""}`,
-        "What was actually playing: ",
-      ]),
+      ], e.currentTarget),
     }, "Report"));
   }
   if (np.state === "tracking") buttons.push(el("button", { class: "btn", onclick: () => act({ action: "ignore" }, "Won't track this one") }, "Stop"));
@@ -379,8 +462,46 @@ function nowPlayingCard(np, container) {
     el("div", { class: "now-top" }, el("span", { class: "eyebrow" }, `Now playing · ${np.host.replace(/^www\./, "")}`)),
     el("div", { class: "now-title", title }, title),
     el("div", { class: "now-sub" }, status),
-    buttons.length ? el("div", { class: "now-actions" }, buttons) : null
+    buttons.length ? el("div", { class: "now-actions" }, buttons) : null,
+    picker
   );
+}
+
+// Season + episode number fields. Saving re-targets tracking; if the wrong episode was already
+// marked watched, the service worker moves the mark.
+function episodePicker(np, act, close) {
+  const num = (name, label, value, min) =>
+    el("label", { class: "ep-field" }, label,
+      el("input", { type: "number", name, min: String(min), max: "9999", step: "1", inputmode: "numeric", value: value != null ? String(value) : "", placeholder: "#", required: "" }));
+  const save = el("button", { class: "btn primary", type: "submit" }, np.state === "watched" ? "Fix" : "Save");
+  const cancel = np.episode != null ? el("button", { class: "link small", type: "button", onclick: close }, "Cancel") : null;
+  const form = el("form", { class: "ep-picker" },
+    num("season", "Season", np.season ?? 1, 0),
+    num("episode", "Episode", np.episode, 1),
+    save,
+    cancel
+  );
+  form.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && cancel) {
+      e.preventDefault();
+      close();
+    }
+  });
+  const hint = np.state === "watched" ? "Moves the watched mark to this episode." : np.guessed ? "Cue guessed this from your watch list." : null;
+  if (hint) form.append(el("div", { class: "ep-hint" }, hint));
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const season = Number(form.elements.season.value);
+    const episode = Number(form.elements.episode.value);
+    if (!Number.isInteger(season) || season < 0 || !Number.isInteger(episode) || episode < 1) {
+      toast("Enter a season (0 or more) and an episode (1 or more).", "err");
+      return;
+    }
+    save.disabled = true;
+    const code = `S${String(season).padStart(2, "0")}E${String(episode).padStart(2, "0")}`;
+    act({ action: "setEpisode", season, episode }, np.state === "watched" ? `Moved the watched mark to ${code}` : `Tracking ${code}`);
+  });
+  return form;
 }
 
 // ---------------- boot ----------------

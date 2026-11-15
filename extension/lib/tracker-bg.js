@@ -1,7 +1,7 @@
 // Service-worker side of auto-tracking: identifies what's playing on Bingers, sends playback
 // scrobbles, keeps "now playing" per tab for the popup, and drives the in-page notices.
 import { api } from "./api.js";
-import { RESERVED_ORIGINS } from "./sites.js";
+import { RESERVED_ORIGINS, originPattern } from "./sites.js";
 
 const DEFAULTS = { autoTrack: true, threshold: 90, minMinutes: 10, confirmBeforeMark: false };
 const RESOLVE_TTL_MS = 7 * 24 * 3600 * 1000;
@@ -32,6 +32,7 @@ const code = (s, e) => (s != null ? `S${pad(s)}E${pad(e)}` : `E${pad(e)}`);
 function label(res) {
   if (!res) return null;
   if (res.kind === "movie") return res.year ? `${res.title} (${res.year})` : res.title;
+  if (res.episode == null) return res.title;
   return `${res.title} ${code(res.season, res.episode)}`;
 }
 
@@ -160,6 +161,8 @@ function publicState(s) {
     kind: s.res?.kind || s.meta?.kind || null,
     guessed: !!s.res?.guessed,
     needsEpisode: !!s.res?.needsEpisode,
+    season: s.res?.season ?? null,
+    episode: s.res?.episode ?? null,
     detected: s.meta?.title || s.raw?.title || null,
     progress: s.progress,
     message: s.message || null,
@@ -195,6 +198,37 @@ async function markWatched(s) {
 }
 
 // ---------- events from tracker.js ----------
+
+// The video plays in an embedded player (another host's iframe), whose own title is usually a
+// file name or nothing. The episode page around it names what's playing, so ask the top frame.
+// Only answers when the tracker runs there too (that site is turned on, or all websites).
+async function topPageMeta(tabId) {
+  try {
+    const r = await Promise.race([
+      chrome.tabs.sendMessage(tabId, { type: "cueReadPage" }, { frameId: 0 }),
+      new Promise((res) => setTimeout(() => res(null), 1500)),
+    ]);
+    return r?.meta?.title ? r.meta : null;
+  } catch {
+    return null;
+  }
+}
+
+// Prefer the page's title; keep the frame's season/episode when the page only lacks those.
+export function mergeFrameMeta(page, frame) {
+  if (!page) return frame;
+  if (!frame || frame.kind === "movie" || page.kind === "movie") return page;
+  const m = { ...page };
+  if (m.episode == null && frame.episode != null) {
+    m.kind = "show";
+    m.season = frame.season;
+    m.episode = frame.episode;
+  } else if (m.season == null && frame.season != null && frame.episode === m.episode) {
+    m.season = frame.season;
+  }
+  return m;
+}
+
 export async function handleTrack(p, sender) {
   const settings = await getSettings();
   if (!settings.autoTrack || !sender.tab) return { ignored: true };
@@ -203,7 +237,15 @@ export async function handleTrack(p, sender) {
   if (!s) {
     s = { id: p.sessionId, tabId: sender.tab.id, frameId: sender.frameId ?? 0, host: p.host, meta: p.meta, raw: p.raw, state: "identifying", res: null, progress: 0 };
     sessions.set(s.id, s);
+    rememberHost(p.host).catch(() => {});
     s.resolving = (async () => {
+      if (s.frameId !== 0) {
+        const page = await topPageMeta(s.tabId);
+        if (page) {
+          s.meta = mergeFrameMeta(page, s.meta);
+          s.raw = null;
+        }
+      }
       try {
         s.res = await resolve(s.meta, s.host);
       } catch (e) {
@@ -240,7 +282,22 @@ export async function handleTrack(p, sender) {
   return publicState(s);
 }
 
-export async function handleTrackerAction({ sessionId, action, titleId, delta }) {
+// The user corrected the season/episode. If the wrong one was already marked watched, move
+// the mark to the right one; if they finished before Cue knew the episode, mark it now.
+async function setEpisode(s, season, episode) {
+  const before = s.res;
+  s.res = { ...s.res, season, episode, guessed: false, needsEpisode: false };
+  if (s.state === "watched" && before.episode != null && (before.season !== season || before.episode !== episode)) {
+    await api.actions([{ action: "unwatch", title: before.id, season: before.season, episode: before.episode }]);
+    await markWatched(s);
+  } else if (s.state === "unknown") {
+    s.state = "tracking";
+    if (s.pendingWatched) await markWatched(s);
+  }
+}
+
+export async function handleTrackerAction(p) {
+  const { sessionId, action, titleId, delta } = p;
   const s = sessions.get(sessionId);
   if (!s) throw new Error("That playback session has ended.");
 
@@ -255,9 +312,14 @@ export async function handleTrackerAction({ sessionId, action, titleId, delta })
     s.state = "ignored";
     toast(s, `Undone: ${label(s.res)} is unwatched again`, [], 5000);
   } else if (action === "episode" && s.res && s.res.kind !== "movie") {
-    s.res = { ...s.res, episode: Math.max(1, (s.res.episode || 1) + Number(delta || 0)), guessed: false };
+    await setEpisode(s, s.res.season ?? 1, Math.max(1, (s.res.episode || 0) + Number(delta || 0)));
   } else if (action === "season" && s.res && s.res.kind !== "movie") {
-    s.res = { ...s.res, season: Math.max(0, (s.res.season ?? 1) + Number(delta || 0)), guessed: false };
+    await setEpisode(s, Math.max(0, (s.res.season ?? 1) + Number(delta || 0)), s.res.episode || 1);
+  } else if (action === "setEpisode" && s.res && s.res.kind !== "movie") {
+    const season = Math.trunc(Number(p.season));
+    const episode = Math.trunc(Number(p.episode));
+    if (!(season >= 0 && season < 1000 && episode >= 1 && episode < 10000)) throw new Error("Enter a season (0 or more) and an episode (1 or more).");
+    await setEpisode(s, season, episode);
   } else if (action === "link" && titleId) {
     const t = await api.title(titleId);
     const base = { id: t.id, kind: t.kind, title: t.title, year: t.year ?? null, confidence: "manual" };
@@ -276,9 +338,43 @@ export async function handleTrackerAction({ sessionId, action, titleId, delta })
 export async function forgetTab(tabId) {
   for (const [id, s] of sessions) if (s.tabId === tabId) sessions.delete(id);
   await setNowPlaying(tabId, null);
+  await setEmbeds(tabId, null);
+}
+
+// ---------- embedded players ----------
+// tabId -> origin patterns of the embedded players seen in that tab ("https://host/*").
+async function setEmbeds(tabId, list) {
+  const { embeds = {} } = await chrome.storage.session.get("embeds");
+  if (list && list.length) embeds[tabId] = list;
+  else delete embeds[tabId];
+  await chrome.storage.session.set({ embeds });
+}
+
+export async function handleEmbeds({ origins, reset }, sender) {
+  const tabId = sender.tab?.id;
+  if (tabId == null) return null;
+  const found = [];
+  for (const o of [].concat(origins || []).slice(0, 5)) {
+    const pattern = originPattern(String(o));
+    if (pattern && !RESERVED_ORIGINS.includes(pattern)) found.push(pattern);
+  }
+  const { embeds = {} } = await chrome.storage.session.get("embeds");
+  // The top frame resets the list on each page; frames add what they find inside.
+  const list = reset && sender.frameId === 0 ? found : [...new Set([...(embeds[tabId] || []), ...found])].slice(0, 10);
+  await setEmbeds(tabId, list);
+  return list;
 }
 
 // ---------- which sites get the tracker ----------
+// Sites where Cue has tracked something, newest first, so Settings can list them even in
+// "all websites" mode (where there's no per-site permission to list).
+async function rememberHost(host) {
+  if (!host) return;
+  const { seenHosts = [] } = await chrome.storage.local.get("seenHosts");
+  if (seenHosts[0] === host) return;
+  await chrome.storage.local.set({ seenHosts: [host, ...seenHosts.filter((h) => h !== host)].slice(0, 30) });
+}
+
 export async function trackedOrigins() {
   const { origins = [] } = await chrome.permissions.getAll();
   // getAll() also lists the extension's own fixed hosts (Bingers API, IMDb/TMDB badge); skip those.
@@ -310,16 +406,23 @@ export async function syncTrackerScripts() {
 }
 
 // Inject right away into already-open tabs of a newly approved site (no reload needed).
+// Also covers tabs where the site only appears as an embedded player (tabs.query matches the
+// top URL only). Frames that already have the tracker skip the second copy.
 export async function injectIntoOpenTabs(origins) {
+  const tabIds = new Set();
   for (const pattern of origins) {
-    let tabs = [];
     try {
-      tabs = await chrome.tabs.query({ url: pattern });
+      for (const t of await chrome.tabs.query({ url: pattern })) tabIds.add(t.id);
     } catch {
-      continue;
+      /* invalid pattern */
     }
-    for (const t of tabs) {
-      chrome.scripting.executeScript({ target: { tabId: t.id, allFrames: true }, files: ["lib/parse.js", "content/tracker.js"] }).catch(() => {});
-    }
+  }
+  const { embeds = {} } = await chrome.storage.session.get("embeds");
+  const all = origins.some((o) => o === "https://*/*" || o === "http://*/*");
+  for (const [tabId, list] of Object.entries(embeds)) {
+    if (all || list.some((o) => origins.includes(o))) tabIds.add(Number(tabId));
+  }
+  for (const tabId of tabIds) {
+    chrome.scripting.executeScript({ target: { tabId, allFrames: true }, files: ["lib/parse.js", "content/tracker.js"] }).catch(() => {});
   }
 }

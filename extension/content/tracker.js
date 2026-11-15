@@ -171,11 +171,35 @@
     session = null;
   }
 
+  // Embedded players from other hosts (iframes). The tracker only runs in frames whose host the
+  // user turned on, so the popup offers to turn these on too. Ads rarely allow fullscreen.
+  let lastEmbeds = null;
+  function reportEmbeds() {
+    const origins = new Set();
+    for (const f of document.querySelectorAll("iframe[src]")) {
+      let u;
+      try {
+        u = new URL(f.src, location.href);
+      } catch {
+        continue;
+      }
+      if (!/^https?:$/.test(u.protocol) || u.origin === location.origin) continue;
+      const r = f.getBoundingClientRect();
+      const fullscreen = f.allowFullscreen || /fullscreen/.test(f.getAttribute("allow") || "") || f.hasAttribute("webkitallowfullscreen");
+      if (fullscreen || (r.width >= 320 && r.height >= 180)) origins.add(u.origin);
+    }
+    const key = [...origins].sort().join(" ");
+    if (key === lastEmbeds) return;
+    lastEmbeds = key;
+    send("trackerEmbeds", { origins: [...origins].slice(0, 5), reset: isTop });
+  }
+
   function tick() {
     if (!settings.autoTrack || hostExcluded()) {
       if (video) detach();
       return;
     }
+    if (!video) reportEmbeds();
     const v = pickVideo();
     if (v !== video) {
       if (v) attach(v);
@@ -266,7 +290,11 @@
     if (ttl) hideTimer = setTimeout(() => box.remove(), ttl);
   }
 
-  chrome.runtime.onMessage.addListener((msg) => {
+  chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     if (msg?.type === "cueToast") showToast(msg.payload || {});
+    // The video is in an embedded player: the service worker asks the top page what's playing.
+    if (msg?.type === "cueReadPage" && isTop) {
+      sendResponse({ meta: Parse.parseMediaInfo(readInfo()), host: location.hostname });
+    }
   });
 })();
