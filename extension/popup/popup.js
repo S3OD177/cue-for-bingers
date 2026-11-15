@@ -345,7 +345,7 @@ function searchCard(t, status, reload) {
 const STATE_TEXT = {
   identifying: "Identifying…",
   tracking: "Tracking",
-  confirm: "Waiting for you to confirm on the page",
+  confirm: "Marking it watched in a few seconds unless you skip",
   watched: "Marked watched ✓",
   unknown: "Couldn't tell what's playing",
   ignored: "Not tracking this one",

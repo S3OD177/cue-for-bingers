@@ -200,8 +200,11 @@ function publicState(s) {
   };
 }
 
-function toast(s, text, actions = [], ttl = 7000) {
-  chrome.tabs.sendMessage(s.tabId, { type: "cueToast", payload: { text, actions, ttl, sessionId: s.id } }, { frameId: s.frameId }).catch?.(() => {});
+const CONFIRM_SECONDS = 10;
+
+// countdown: seconds shown on the first button (the service worker does the action itself).
+function toast(s, text, actions = [], ttl = 7000, countdown = 0) {
+  chrome.tabs.sendMessage(s.tabId, { type: "cueToast", payload: { text, actions, ttl, countdown, sessionId: s.id } }, { frameId: s.frameId }).catch?.(() => {});
 }
 
 function playbackBody(s, progress) {
@@ -316,8 +319,15 @@ export async function handleTrack(p, sender) {
     if (p.event === "pause") api.playback("pause", playbackBody(s, p.progress)).catch(() => {});
     if (p.event === "watched") {
       if (settings.confirmBeforeMark) {
+        // Ask, but don't wait forever: mark it after 10 s unless the viewer skips.
         s.state = "confirm";
-        toast(s, `Finished ${label(s.res)}?`, [{ id: "confirm", label: "Mark watched" }, { id: "ignore", label: "Skip" }], 0);
+        toast(s, `Finished ${label(s.res)}?`, [{ id: "confirm", label: "Mark watched" }, { id: "ignore", label: "Skip" }], 0, CONFIRM_SECONDS);
+        clearTimeout(s.confirmTimer);
+        s.confirmTimer = setTimeout(async () => {
+          if (s.state !== "confirm") return;
+          await markWatched(s);
+          await setNowPlaying(s.tabId, publicState(s));
+        }, CONFIRM_SECONDS * 1000);
       } else await markWatched(s);
     }
   } else if (s.state === "unknown" && p.event === "watched") {
@@ -359,9 +369,10 @@ export async function handleTrackerAction(p) {
   const s = sessions.get(sessionId);
   if (!s) throw new Error("That playback session has ended.");
 
+  if (action === "ignore" || action === "confirm") clearTimeout(s.confirmTimer);
   if (action === "ignore") {
     s.state = "ignored";
-  } else if (action === "confirm" && s.res) {
+  } else if (action === "confirm" && s.res && s.state === "confirm") {
     await markWatched(s);
   } else if (action === "undo" && s.res) {
     const a = { action: "unwatch", title: s.res.id };

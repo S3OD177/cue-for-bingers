@@ -287,7 +287,9 @@
     button.x { border: 0; color: #9d9691; padding: 4px 8px; }
   `;
 
-  function showToast({ text, actions = [], ttl = 7000, sessionId }) {
+  let countTimer = null;
+  function showToast({ text, actions = [], ttl = 7000, countdown = 0, sessionId }) {
+    clearInterval(countTimer);
     if (window.top !== window && !document.fullscreenElement && !video) return;
     if (!host?.isConnected) {
       host = document.createElement("cue-toast");
@@ -315,10 +317,21 @@
       b.className = i === 0 ? "p" : "";
       b.textContent = a.label;
       b.addEventListener("click", () => {
+        clearInterval(countTimer);
         send("trackerAction", { sessionId, action: a.id, index: a.index });
         box.remove();
       });
       box.append(b);
+      // "Mark watched (10)": counts down to the moment the service worker does it anyway.
+      if (i === 0 && countdown > 0) {
+        let left = Math.round(countdown);
+        b.textContent = `${a.label} (${left})`;
+        countTimer = setInterval(() => {
+          left -= 1;
+          if (left > 0) b.textContent = `${a.label} (${left})`;
+          else clearInterval(countTimer);
+        }, 1000);
+      }
     });
     const x = document.createElement("button");
     x.className = "x";
