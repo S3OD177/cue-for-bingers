@@ -80,4 +80,23 @@ t("Shoof Live episode page (player is an embedded iframe)", () => {
   });
   assert.equal(r.title, "الفريق الأول"); assert.equal(r.season, null); assert.equal(r.episode, 1);
 });
+t("Arabic ordinal words for season and episode", () => {
+  let r = parseText("مسلسل الفريق الأول الموسم الثاني الحلقة 5 مترجمة");
+  assert.equal(r.title, "الفريق الأول"); assert.equal(r.season, 2); assert.equal(r.episode, 5);
+  r = parseText("مسلسل وادي الذئاب الموسم الاول الحلقة الثالثة");
+  assert.equal(r.title, "وادي الذئاب"); assert.equal(r.season, 1); assert.equal(r.episode, 3);
+  r = parseText("مسلسل باب الحارة الجزء الثاني عشر الحلقة 7");
+  assert.equal(r.title, "باب الحارة"); assert.equal(r.season, 12); assert.equal(r.episode, 7);
+  r = parseText("مسلسل الهيبة الجزء 3 الحلقة الحادية عشرة");
+  assert.equal(r.title, "الهيبة"); assert.equal(r.season, 3); assert.equal(r.episode, 11);
+  // A show whose name contains an ordinal keeps it: "الفريق الأول" isn't "season 1".
+  r = parseText("مسلسل الفريق الأول الحلقة 1 مترجمة");
+  assert.equal(r.title, "الفريق الأول"); assert.equal(r.season, null); assert.equal(r.episode, 1);
+});
+t("Season without an episode", () => {
+  let r = parseText("مسلسل الفريق الأول الموسم الثاني - شوف لايف");
+  assert.equal(r.kind, "show"); assert.equal(r.title, "الفريق الأول"); assert.equal(r.season, 2); assert.equal(r.episode, null);
+  r = parseText("Watch The Bear Season 3 | Hulu");
+  assert.equal(r.title, "The Bear"); assert.equal(r.season, 3); assert.equal(r.episode, null);
+});
 console.log(`\n${n} parser tests passed`);

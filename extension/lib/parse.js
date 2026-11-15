@@ -33,8 +33,38 @@
     [/الحلقة\s*(\d{1,4})/, false], // الحلقة N
   ];
 
+  // Arabic ordinal words: "الموسم الثاني" (season 2), "الحلقة الثالثة" (episode 3). Seasons use
+  // the masculine form, episodes the feminine; both are accepted for either. "الجزء" (part) is
+  // how many sites number seasons. Written with or without hamza (الأول / الاول).
+  const ORDINALS = [
+    ["الأول", "الأولى"], ["الثاني", "الثانية"], ["الثالث", "الثالثة"], ["الرابع", "الرابعة"], ["الخامس", "الخامسة"],
+    ["السادس", "السادسة"], ["السابع", "السابعة"], ["الثامن", "الثامنة"], ["التاسع", "التاسعة"], ["العاشر", "العاشرة"],
+  ];
+  const ORD_WORDS = [];
+  ORDINALS.forEach(([m, f], i) => ORD_WORDS.push([m, i + 1], [f, i + 1]));
+  // 11-19: "الحادي عشر" / "الحادية عشرة", "الثاني عشر" / "الثانية عشرة", …
+  ORDINALS.slice(0, 9).forEach(([m, f], i) => {
+    const m11 = i === 0 ? "الحادي" : m;
+    const f11 = i === 0 ? "الحادية" : f;
+    ORD_WORDS.push([`${m11} عشر`, i + 11], [`${f11} عشرة`, i + 11], [`${f11} عشر`, i + 11]);
+  });
+  ORD_WORDS.push(["العشرون", 20], ["العشرين", 20]);
+  ORD_WORDS.sort((a, b) => b[0].length - a[0].length); // longest first: "الثاني عشر" before "الثاني"
+  const hamzaFree = (w) => w.replace(/[أإآ]/g, "ا");
+  const ORD_MAP = new Map(ORD_WORDS.map(([w, n]) => [hamzaFree(w), n]));
+  const ORD_RE = new RegExp(
+    `(الموسم|الجزء|الحلقة)\\s+(${ORD_WORDS.map(([w]) => w.replace(/[أإآا]/g, "[أإآا]")).join("|")})(?![\\p{L}])`,
+    "gu"
+  );
+
+  function arabicNumbers(text) {
+    return text
+      .replace(ORD_RE, (_, key, word) => `${key === "الجزء" ? "الموسم" : key} ${ORD_MAP.get(hamzaFree(word))}`)
+      .replace(/الجزء\s*(\d{1,3})/g, "الموسم $1");
+  }
+
   function parseText(raw) {
-    const text = toAsciiDigits(squash(raw));
+    const text = arabicNumbers(toAsciiDigits(squash(raw)));
     if (!text) return null;
     for (const [re, hasSeason] of EP_PATTERNS) {
       const m = text.match(re);
@@ -44,6 +74,13 @@
       let title = cleanTitle(text.slice(0, m.index));
       if (!title) title = cleanTitle(text.slice(m.index + m[0].length).split(/[|–—]| - /)[0]);
       return { kind: "show", title, season, episode, year: null };
+    }
+    // A season with no episode ("مسلسل X الموسم 2", "X Season 2"): it's a show; keep the season
+    // and leave it out of the title so the Bingers search can match.
+    const sm = text.match(/(?:الموسم|\bSeason)\s*(\d{1,3})(?!\d)/i);
+    if (sm) {
+      const title = cleanTitle(text.slice(0, sm.index)) || cleanTitle(text.slice(sm.index + sm[0].length).split(/[|–—]| - /)[0]);
+      return { kind: "show", title, season: Number(sm[1]), episode: null, year: null };
     }
     const ym = text.match(/\((19\d{2}|20\d{2})\)/);
     const title = cleanTitle(ym ? text.slice(0, ym.index) : text);
