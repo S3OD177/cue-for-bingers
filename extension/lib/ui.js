@@ -1,14 +1,17 @@
 // Shared helpers for extension pages (popup + options). All DOM is built with
 // textContent/createElement — never innerHTML with API data.
+import { t } from "./i18n.js";
+
+export { t, tNodes, localizePage, loadLanguage, LANGUAGES } from "./i18n.js";
 
 export function send(type, payload) {
   return new Promise((resolve, reject) => {
     chrome.runtime.sendMessage({ type, payload }, (res) => {
       const lastError = chrome.runtime.lastError;
       if (lastError) return reject(new Error(lastError.message));
-      if (!res) return reject(new Error("No response from the extension."));
+      if (!res) return reject(new Error(t("err_noResponse")));
       if (res.ok) resolve(res.data);
-      else reject(Object.assign(new Error(res.error?.message || "Something went wrong."), res.error || {}));
+      else reject(Object.assign(new Error(res.error?.message || t("err_generic")), res.error || {}));
     });
   });
 }
@@ -30,25 +33,11 @@ export function el(tag, attrs = {}, ...children) {
   return node;
 }
 
-export const STATUS_LABELS = {
-  watch_next: "Watch next",
-  collecting_dust: "Collecting dust",
-  not_started: "Not started",
-  caught_up: "Caught up",
-  completed: "Completed",
-  upcoming: "Upcoming",
-  watch_later: "Watch later",
-  stopped: "Stopped",
-  progress_pending: "Updating…",
-  to_watch: "To watch",
-  started: "Watching",
-  watched: "Watched",
-  not_in_library: "Not in library",
-  unknown: "Not on Bingers",
-};
+const STATUSES = ["watch_next", "collecting_dust", "not_started", "caught_up", "completed", "upcoming", "watch_later", "stopped", "progress_pending", "to_watch", "started", "watched", "not_in_library", "unknown"];
 
 export function statusLabel(s) {
-  return STATUS_LABELS[s] || (s ? String(s).replace(/_/g, " ") : "");
+  if (STATUSES.includes(s)) return t(`status_${s}`);
+  return s ? String(s).replace(/_/g, " ") : "";
 }
 
 export function inLibrary(status) {
@@ -86,9 +75,9 @@ export function toast(message, kind = "info") {
 
 export function describeResult(result) {
   const r = result?.results?.[0];
-  if (!r) return { ok: true, message: "Done" };
-  if (r.status === "ok") return { ok: true, message: r.outcome === "rewatched" ? "Logged as a rewatch" : "Saved to Bingers" };
-  if (r.status === "already") return { ok: true, message: "Already up to date" };
-  if (r.status === "unresolved") return { ok: false, message: r.message || "Bingers couldn't match that title." };
-  return { ok: false, message: r.message || "Bingers couldn't save that." };
+  if (!r) return { ok: true, message: t("result_done") };
+  if (r.status === "ok") return { ok: true, message: r.outcome === "rewatched" ? t("result_rewatch") : t("result_saved") };
+  if (r.status === "already") return { ok: true, message: t("result_already") };
+  if (r.status === "unresolved") return { ok: false, message: r.message || t("result_unresolved") };
+  return { ok: false, message: r.message || t("result_failed") };
 }

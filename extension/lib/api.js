@@ -1,6 +1,7 @@
 // Thin client for https://api.bingers.app/v1 (OpenAPI 3.1 contract at /v1/openapi.json).
 import { API_BASE } from "./config.js";
 import { getAccessToken, getAuth, clearAuth } from "./auth.js";
+import { t } from "./i18n.js";
 
 export class ApiError extends Error {
   constructor(status, code, message, extra = {}) {
@@ -33,7 +34,7 @@ async function request(path, { method = "GET", query, body } = {}, isRetry = fal
   try {
     res = await fetch(url, { method, headers, body: body !== undefined ? JSON.stringify(body) : undefined });
   } catch {
-    throw new ApiError(0, "network", "Couldn't reach Bingers. Check your connection.");
+    throw new ApiError(0, "network", t("err_network"));
   }
 
   // An OAuth access token can be revoked/expired early: refresh once and retry.
@@ -57,23 +58,23 @@ async function request(path, { method = "GET", query, body } = {}, isRetry = fal
     const requestId = err.requestId;
     if (res.status === 401) {
       await clearAuth();
-      throw new ApiError(401, err.code || "unauthorized", "Your Bingers sign-in is no longer valid. Please sign in again.", { requestId });
+      throw new ApiError(401, err.code || "unauthorized", t("err_signedOut"), { requestId });
     }
     if (res.status === 403) {
       const msg =
         err.code === "insufficient_scope"
-          ? "This sign-in can only read. Create a \"read + write\" token (or sign in again) to make changes."
-          : err.message || "Your Bingers account doesn't have API access. It needs the Legend or Icon plan.";
+          ? t("err_readOnly")
+          : err.message || t("err_plan");
       throw new ApiError(403, err.code || "forbidden", msg, { requestId });
     }
     if (res.status === 429) {
       const retryAfter = Number(res.headers.get("Retry-After")) || Number(err.retryAfterSeconds) || 60;
-      throw new ApiError(429, "rate_limited", `Bingers is rate-limiting requests. Try again in ${retryAfter}s.`, { retryAfter, requestId });
+      throw new ApiError(429, "rate_limited", t("err_rateLimited", retryAfter), { retryAfter, requestId });
     }
     if (res.status === 404) {
-      throw new ApiError(404, err.code || "not_found", err.message || "Not found on Bingers.", { requestId });
+      throw new ApiError(404, err.code || "not_found", err.message || t("err_notFound"), { requestId });
     }
-    throw new ApiError(res.status, err.code || `http_${res.status}`, err.message || `Bingers request failed (${res.status}).`, { requestId });
+    throw new ApiError(res.status, err.code || `http_${res.status}`, err.message || t("err_requestFailed", res.status), { requestId });
   }
   return data;
 }

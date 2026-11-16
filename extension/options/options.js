@@ -1,8 +1,23 @@
-import { send, el, toast } from "../lib/ui.js";
+import { send, el, toast, t, tNodes, localizePage, loadLanguage, LANGUAGES } from "../lib/ui.js";
 import { INTEGRATIONS_URL } from "../lib/config.js";
 import { ALL_SITES, isAllSitesPattern, siteLabel } from "../lib/sites.js";
 
-const saved = () => toast("Saved", "ok");
+const uiLang = await loadLanguage();
+localizePage();
+const saved = () => toast(t("common_saved"), "ok");
+
+// ---- language (default: same as Chrome) ----
+// Language names are shown in their own language, so they're readable whatever is selected.
+const langSelect = document.getElementById("ui-lang");
+langSelect.append(
+  el("option", { value: "auto" }, t("opt_languageAuto")),
+  ...LANGUAGES.map((l) => el("option", { value: l.code, lang: l.code }, l.name))
+);
+langSelect.value = uiLang;
+langSelect.addEventListener("change", async () => {
+  await chrome.storage.sync.set({ uiLang: langSelect.value });
+  location.reload(); // redraw every label in the new language
+});
 
 const body = document.getElementById("account-body");
 const badge = document.getElementById("show-badge");
@@ -19,13 +34,12 @@ function message(text, kind = "") {
 
 function renderSignedIn(session) {
   const p = session.profile;
-  const label = p?.handle ? `@${p.handle}` : p?.name || "your Bingers account";
-  const method = session.mode === "pat" ? "personal access token" : "Bingers sign-in";
+  const label = p?.handle ? `@${p.handle}` : p?.name || t("opt_yourAccount");
   body.replaceChildren(
     el("div", { class: "signed-in" },
       el("div", {},
-        el("div", {}, el("span", { class: "status-dot" }), "Connected to ", el("strong", {}, label)),
-        el("div", { class: "muted small" }, `Using a ${method}.`)
+        el("div", {}, el("span", { class: "status-dot" }), tNodes("opt_connectedTo", el("strong", { dir: "auto" }, label))),
+        el("div", { class: "muted small" }, session.mode === "pat" ? t("opt_usingPat") : t("opt_usingOAuth"))
       ),
       el("button", {
         class: "btn",
@@ -34,7 +48,7 @@ function renderSignedIn(session) {
           render();
 
         },
-      }, "Sign out")
+      }, t("opt_signOut"))
     )
   );
 }
@@ -42,7 +56,7 @@ function renderSignedIn(session) {
 function renderSignedOut(session, note) {
   const out = [];
   if (session.oauthConfigured) {
-    const btn = el("button", { class: "btn primary" }, "Sign in with Bingers");
+    const btn = el("button", { class: "btn primary" }, t("signin_oauth"));
     btn.addEventListener("click", async () => {
       btn.disabled = true;
       try {
@@ -53,15 +67,15 @@ function renderSignedOut(session, note) {
         status.replaceChildren(message(e.message, "err"));
       }
     });
-    out.push(el("p", { class: "muted small" }, "Recommended. Opens a Bingers window where you approve access. No token to copy."), btn);
-    out.push(el("div", { class: "divider" }, "or use a personal access token"));
+    out.push(el("p", { class: "muted small" }, t("opt_oauthNote")), btn);
+    out.push(el("div", { class: "divider" }, t("opt_orPat")));
   }
 
-  const input = el("input", { type: "password", placeholder: "bng_pat_…", autocomplete: "off", spellcheck: "false", "aria-label": "Personal access token" });
-  const save = el("button", { class: "btn primary" }, "Connect");
+  const input = el("input", { type: "password", placeholder: "bng_pat_…", autocomplete: "off", spellcheck: "false", "aria-label": t("opt_pat") });
+  const save = el("button", { class: "btn primary" }, t("opt_connect"));
   const connect = async () => {
     save.disabled = true;
-    status.replaceChildren(message("Checking token…"));
+    status.replaceChildren(message(t("opt_checking")));
     try {
       await send("signInToken", { token: input.value });
       render();
@@ -75,12 +89,12 @@ function renderSignedOut(session, note) {
 
   const link = el("a", { href: INTEGRATIONS_URL, target: "_blank", rel: "noopener" }, "bingers.app/integrations");
   out.push(
-    el("p", { class: "small" }, "Create a token at ", link, ". Pick “read + write” so you can mark things watched. The token is stored only in this browser."),
+    el("p", { class: "small" }, tNodes("opt_createToken", link)),
     el("div", { class: "field" }, input, save)
   );
   const status = el("div");
   if (note) status.append(message(note));
-  out.push(status, el("p", { class: "muted small" }, "API access needs the Bingers Legend or Icon plan."));
+  out.push(status, el("p", { class: "muted small" }, t("signin_planNote")));
   body.replaceChildren(...out);
 }
 
@@ -179,26 +193,26 @@ async function renderSites() {
     if (everywhere) {
       // With "all websites" on, every site is on unless it was skipped.
       const skipped = excludedHosts.includes(host);
-      const btn = el("button", { class: skipped ? "btn primary" : "btn" }, skipped ? "Track again" : "Skip");
+      const btn = el("button", { class: skipped ? "btn primary" : "btn" }, skipped ? t("opt_trackAgain") : t("opt_skip"));
       btn.addEventListener("click", async () => {
         const next = skipped ? excludedHosts.filter((h) => h !== host) : [...new Set([...excludedHosts, host])];
         await chrome.storage.sync.set({ excludedHosts: next });
         renderSites();
       });
-      rows.push(siteRow(origin, skipped ? "Skipped" : "On", skipped ? "off" : "on", btn));
+      rows.push(siteRow(origin, skipped ? t("opt_siteSkipped") : t("opt_siteOn"), skipped ? "off" : "on", btn));
       continue;
     }
     const on = granted.includes(origin);
-    const btn = el("button", { class: on ? "btn" : "btn primary" }, on ? "Turn off" : "Turn on");
+    const btn = el("button", { class: on ? "btn" : "btn primary" }, on ? t("live_turnOff") : t("opt_turnOn"));
     btn.addEventListener("click", async () => {
       // permissions.request must run directly from this click.
       const done = on ? await chrome.permissions.remove({ origins: [origin] }) : await chrome.permissions.request({ origins: [origin] });
       if (done) await send("syncTracker").catch(() => {});
       renderSites();
     });
-    rows.push(siteRow(origin, on ? "On" : "Off", on ? "on" : "off", btn));
+    rows.push(siteRow(origin, on ? t("opt_siteOn") : t("opt_siteOff"), on ? "on" : "off", btn));
   }
-  if (!rows.length) rows.push(el("p", { class: "muted small" }, "No sites yet. Open a site you watch on, click the Cue icon, then turn it on."));
+  if (!rows.length) rows.push(el("p", { class: "muted small" }, t("opt_noSites")));
   sitesEl.replaceChildren(...rows);
 }
 renderSites();

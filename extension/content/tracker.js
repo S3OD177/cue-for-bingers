@@ -304,7 +304,7 @@
   const CSS = `
     :host { all: initial; }
     .t { position: fixed; left: 50%; top: 28px; transform: translateX(-50%); z-index: 2147483647;
-         display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 14px; border-radius: 999px;
+         display: flex; align-items: center; gap: 10px; padding-block: 8px; padding-inline: 14px 8px; border-radius: 999px;
          background: #0c0b0b; color: #f6f3f0; border: 1px solid #2c2826; box-shadow: 0 10px 30px rgba(0,0,0,.45);
          font: 13px/1.3 "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; max-width: min(560px, 92vw); }
     .dot { width: 8px; height: 8px; border-radius: 50%; background: #5fd38d; flex: none; }
@@ -316,7 +316,7 @@
   `;
 
   let countTimer = null;
-  function showToast({ text, actions = [], ttl = 7000, countdown = 0, sessionId }) {
+  function showToast({ text, actions = [], ttl = 7000, countdown = 0, sessionId, dir = "ltr", lang = "en", dismiss = "Dismiss" }) {
     clearInterval(countTimer);
     if (window.top !== window && !document.fullscreenElement && !video) return;
     if (!host?.isConnected) {
@@ -334,6 +334,8 @@
     const box = document.createElement("div");
     box.className = "t";
     box.setAttribute("role", "status");
+    box.dir = dir === "rtl" ? "rtl" : "ltr";
+    box.lang = String(lang);
     const dot = document.createElement("span");
     dot.className = "dot";
     const txt = document.createElement("span");
@@ -363,7 +365,7 @@
     });
     const x = document.createElement("button");
     x.className = "x";
-    x.setAttribute("aria-label", "Dismiss");
+    x.setAttribute("aria-label", String(dismiss));
     x.textContent = "×";
     x.addEventListener("click", () => box.remove());
     box.append(x);

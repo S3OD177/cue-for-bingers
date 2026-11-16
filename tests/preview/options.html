@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Cue for Bingers · Settings</title>
+    <title data-i18n="opt_pageTitle">Cue for Bingers · Settings</title>
     <link rel="stylesheet" href="../../extension/popup/popup.css" />
     <link rel="stylesheet" href="../../extension/options/options.css" />
   </head>
@@ -13,68 +13,75 @@
         <img src="../../extension/icons/icon128.png" alt="" width="56" height="56" />
         <div>
           <h1>Cue <span class="muted" style="font-weight:500">for Bingers</span></h1>
-          <p class="muted">An unofficial companion for your Bingers account. Not made by or affiliated with Bingers.</p>
+          <p class="muted" data-i18n="opt_tagline">An unofficial companion for your Bingers account. Not made by or affiliated with Bingers.</p>
         </div>
       </header>
 
       <section class="box" id="account">
-        <h2>Account</h2>
-        <div id="account-body" class="muted">Loading…</div>
+        <h2 data-i18n="opt_account">Account</h2>
+        <div id="account-body" class="muted" data-i18n="common_loading">Loading…</div>
+      </section>
+
+      <section class="box" id="language">
+        <h2 data-i18n="opt_language">Language</h2>
+        <label class="small"><span data-i18n="opt_languageHint">Language for Cue's menus, buttons and notices</span>
+          <select id="ui-lang"></select>
+        </label>
       </section>
 
       <section class="box" id="autotrack">
-        <h2>Auto-tracking</h2>
+        <h2 data-i18n="opt_autotrack">Auto-tracking</h2>
         <label class="toggle">
           <input type="checkbox" id="auto-track" />
-          <span>Mark episodes and movies watched automatically while I watch</span>
+          <span data-i18n="opt_autoTrackToggle">Mark episodes and movies watched automatically while I watch</span>
         </label>
         <div class="grid2 dep">
-          <label class="small">Mark watched at
+          <label class="small"><span data-i18n="opt_threshold">Mark watched at</span>
             <select id="threshold">
-              <option value="80">80% watched</option>
-              <option value="85">85% watched</option>
-              <option value="90">90% watched</option>
-              <option value="95">95% watched</option>
+              <option value="80" data-i18n="opt_percent" data-i18n-args="80">80% watched</option>
+              <option value="85" data-i18n="opt_percent" data-i18n-args="85">85% watched</option>
+              <option value="90" data-i18n="opt_percent" data-i18n-args="90">90% watched</option>
+              <option value="95" data-i18n="opt_percent" data-i18n-args="95">95% watched</option>
             </select>
           </label>
-          <label class="small">Ignore videos shorter than
+          <label class="small"><span data-i18n="opt_minLength">Ignore videos shorter than</span>
             <select id="min-minutes">
-              <option value="5">5 min</option>
-              <option value="10">10 min</option>
-              <option value="15">15 min</option>
-              <option value="20">20 min</option>
+              <option value="5" data-i18n="common_minutes" data-i18n-args="5">5 min</option>
+              <option value="10" data-i18n="common_minutes" data-i18n-args="10">10 min</option>
+              <option value="15" data-i18n="common_minutes" data-i18n-args="15">15 min</option>
+              <option value="20" data-i18n="common_minutes" data-i18n-args="20">20 min</option>
             </select>
           </label>
         </div>
         <label class="toggle dep">
           <input type="checkbox" id="confirm-mark" />
-          <span>Ask me before marking anything watched (marks it after 10 s unless I skip)</span>
+          <span data-i18n="opt_confirm">Ask me before marking anything watched (marks it after 10 s unless I skip)</span>
         </label>
         <label class="toggle dep">
           <input type="checkbox" id="skip-platforms" />
-          <span>Skip YouTube and similar sites<br /><span class="muted small">YouTube, Vimeo, Dailymotion, Twitch, Kick, TikTok, Facebook, Instagram, X, Reddit, Rumble, Odysee, Bilibili, including their videos embedded in other pages. Turn off if you watch shows there.</span></span>
+          <span><span data-i18n="opt_skipPlatforms">Skip YouTube and similar sites</span><br /><span class="muted small" data-i18n="opt_skipPlatformsNote">YouTube, Vimeo, Dailymotion, Twitch, Kick, TikTok, Facebook, Instagram, X, Reddit, Rumble, Odysee, Bilibili, including their videos embedded in other pages. Turn off if you watch shows there.</span></span>
         </label>
 
-        <h3>Sites</h3>
-        <p class="muted small">To turn on a site, open it, click the Cue icon, then “Track”. Chrome asks you to approve each one, and Cue only runs on sites you approve. Your sites are listed below.</p>
+        <h3 data-i18n="opt_sites">Sites</h3>
+        <p class="muted small" data-i18n="opt_sitesHelp">To turn on a site, open it, click the Cue icon, then “Track”. Chrome asks you to approve each one, and Cue only runs on sites you approve. Your sites are listed below.</p>
         <label class="toggle allsites">
           <input type="checkbox" id="all-sites" />
-          <span><strong>Auto-track on all websites</strong><br /><span class="muted small">Chrome will ask once to let Cue run on every site. Cue still only reacts to long videos, so ads, trailers and short clips are ignored. You can skip a site from the Cue icon while you're on it.</span></span>
+          <span><strong data-i18n="opt_allSites">Auto-track on all websites</strong><br /><span class="muted small" data-i18n="opt_allSitesNote">Chrome will ask once to let Cue run on every site. Cue still only reacts to long videos, so ads, trailers and short clips are ignored. You can skip a site from the Cue icon while you're on it.</span></span>
         </label>
         <div id="sites" class="sites"></div>
         <div id="excluded" class="small muted"></div>
       </section>
 
       <section class="box">
-        <h2>On IMDb and TMDB</h2>
+        <h2 data-i18n="opt_imdb">On IMDb and TMDB</h2>
         <label class="toggle">
           <input type="checkbox" id="show-badge" />
-          <span>Show my Bingers status and quick actions on title pages</span>
+          <span data-i18n="opt_badge">Show my Bingers status and quick actions on title pages</span>
         </label>
-        <p class="muted small">When this is on, the extension sends the IMDb or TMDB ID of the title page you're viewing to Bingers to look up your status. Nothing else from the page is read or sent.</p>
+        <p class="muted small" data-i18n="opt_badgeNote">When this is on, the extension sends the IMDb or TMDB ID of the title page you're viewing to Bingers to look up your status. Nothing else from the page is read or sent.</p>
       </section>
 
-      <p class="foot muted small">Cue for Bingers <span id="version"></span> · Unofficial, not affiliated with Bingers.</p>
+      <p class="foot muted small">Cue for Bingers <span id="version"></span> · <span data-i18n="opt_foot">Unofficial, not affiliated with Bingers.</span></p>
     </div>
     <script src="../../tests/preview/mock-chrome.js"></script><script type="module" src="../../extension/options/options.js"></script>
   </body>

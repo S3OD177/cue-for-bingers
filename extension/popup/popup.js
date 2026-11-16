@@ -1,4 +1,4 @@
-import { send, el, statusLabel, inLibrary, episodeParts, episodeCode, toast, describeResult } from "../lib/ui.js";
+import { send, el, statusLabel, inLibrary, episodeParts, episodeCode, toast, describeResult, t, localizePage, loadLanguage } from "../lib/ui.js";
 import { originPattern, ALL_SITES, POPULAR_SITES } from "../lib/sites.js";
 import { REPORT_FORM, reportsEnabled } from "../lib/config.js";
 import { icon } from "../lib/icons.js";
@@ -34,11 +34,11 @@ async function reportToDeveloper(subject, lines, button) {
   try {
     // Google Forms doesn't send CORS headers, so the response can't be read ("no-cors").
     await fetch(REPORT_FORM.action, { method: "POST", mode: "no-cors", body });
-    toast("Sent to the developer. Thanks!", "ok");
-    if (button) button.textContent = "Sent ✓";
+    toast(t("report_sent"), "ok");
+    if (button) button.textContent = t("report_sentBtn");
     return true;
   } catch {
-    toast("Couldn't send it. Check your connection and try again.", "err");
+    toast(t("report_failed"), "err");
     if (button) button.disabled = false;
     return false;
   }
@@ -47,6 +47,8 @@ async function reportToDeveloper(subject, lines, button) {
 const bareHost = (o) => String(o).replace(/^https?:\/\//, "").replace(/\/\*$/, "").replace(/^www\./, "");
 const isKnownSite = (pattern) => POPULAR_SITES.some((s) => bareHost(s.origin) === bareHost(pattern));
 
+await loadLanguage();
+localizePage();
 const app = document.getElementById("app");
 const who = document.getElementById("who");
 const optionsBtn = document.getElementById("open-options");
@@ -81,7 +83,7 @@ function iconBtn(cls, name, label, attrs = {}) {
 
 // Grey placeholder rows while a list loads.
 function skeleton(rows = 3, withPoster = false) {
-  return el("div", { class: "skeleton", "aria-busy": "true", "aria-label": "Loading" },
+  return el("div", { class: "skeleton", "aria-busy": "true", "aria-label": t("common_loading") },
     Array.from({ length: rows }, () =>
       el("div", { class: "card sk-card" },
         withPoster ? el("div", { class: "poster sk" }) : null,
@@ -103,7 +105,7 @@ function chip(status) {
 }
 
 function showError(container, e) {
-  container.replaceChildren(el("div", { class: "error-box" }, e?.message || "Something went wrong."));
+  container.replaceChildren(el("div", { class: "error-box" }, e?.message || t("err_generic")));
 }
 
 async function runAction(button, action, onDone) {
@@ -128,8 +130,8 @@ async function runAction(button, action, onDone) {
 function renderSignedOut(session) {
   who.textContent = "";
   const children = [
-    el("h1", {}, "Connect your Bingers account"),
-    el("p", {}, "Track episodes, see your status on IMDb and TMDB, and mark things watched from any tab."),
+    el("h1", {}, t("signin_title")),
+    el("p", {}, t("signin_body")),
   ];
   if (session.oauthConfigured) {
     children.push(
@@ -146,21 +148,21 @@ function renderSignedOut(session) {
             b.disabled = false;
           }
         },
-      }, "Sign in with Bingers")
+      }, t("signin_oauth"))
     );
-    children.push(el("button", { class: "link", onclick: () => chrome.runtime.openOptionsPage() }, "Use a personal access token instead"));
+    children.push(el("button", { class: "link", onclick: () => chrome.runtime.openOptionsPage() }, t("signin_usePat")));
   } else {
-    children.push(el("button", { class: "btn primary big", onclick: () => chrome.runtime.openOptionsPage() }, "Connect with an access token"));
+    children.push(el("button", { class: "btn primary big", onclick: () => chrome.runtime.openOptionsPage() }, t("signin_connectToken")));
   }
-  children.push(el("p", { class: "muted fine" }, "API access needs the Bingers Legend or Icon plan."));
+  children.push(el("p", { class: "muted fine" }, t("signin_planNote")));
   app.replaceChildren(el("div", { class: "signin" }, el("img", { class: "signin-logo", src: "../icons/icon128.png", alt: "", width: "56", height: "56" }), children));
 }
 
 // ---------------- signed-in shell ----------------
 function renderShell() {
   const tabs = el("div", { class: "tabs", role: "tablist" },
-    el("button", { class: "tab", role: "tab", "aria-selected": String(activeTab === "next"), onclick: () => switchTab("next") }, "Up next"),
-    el("button", { class: "tab", role: "tab", "aria-selected": String(activeTab === "search"), onclick: () => switchTab("search") }, "Search")
+    el("button", { class: "tab", role: "tab", "aria-selected": String(activeTab === "next"), onclick: () => switchTab("next") }, t("tab_next")),
+    el("button", { class: "tab", role: "tab", "aria-selected": String(activeTab === "search"), onclick: () => switchTab("search") }, t("tab_search"))
   );
   const panel = el("div", { class: "panel", id: "panel" });
   const live = el("div", { id: "live" });
@@ -202,10 +204,10 @@ async function renderUpNext(panel) {
   }
   const sections = data?.sections || {};
   const groups = [
-    ["watch_next", "Watch next"],
-    ["to_watch", "Movies to watch"],
-    ["collecting_dust", "Collecting dust"],
-    ["upcoming", "Upcoming"],
+    ["watch_next", statusLabel("watch_next")],
+    ["to_watch", t("upnext_movies")],
+    ["collecting_dust", statusLabel("collecting_dust")],
+    ["upcoming", statusLabel("upcoming")],
   ];
   const out = [];
   for (const [key, label] of groups) {
@@ -215,9 +217,9 @@ async function renderUpNext(panel) {
     for (const item of s.items) out.push(libraryCard(item, key, () => renderUpNext(panel)));
   }
   if (!out.length) {
-    out.push(emptyState("tv", "Nothing queued up. Find something in Search and follow it."));
+    out.push(emptyState("tv", t("upnext_empty")));
   }
-  if (data?.truncated) out.push(el("div", { class: "muted fine center-note" }, "Showing your most recent titles."));
+  if (data?.truncated) out.push(el("div", { class: "muted fine center-note" }, t("upnext_truncated")));
   finishLoading(panel, refresh, out);
   fillPosters(panel);
 }
@@ -246,18 +248,18 @@ async function fillPosters(panel) {
 function libraryCard(item, sectionKey, reload) {
   const next = episodeParts(item.progress?.next);
   const subParts = [];
-  if (item.kind === "show" && next) subParts.push(`Next: ${episodeCode(next)}${next.title ? ` · ${next.title}` : ""}`);
+  if (item.kind === "show" && next) subParts.push(t("upnext_next", `${episodeCode(next)}${next.title ? ` · ${next.title}` : ""}`));
   else if (item.year) subParts.push(String(item.year));
-  if (item.kind === "movie" && item.runtime_minutes) subParts.push(`${item.runtime_minutes} min`);
+  if (item.kind === "movie" && item.runtime_minutes) subParts.push(t("common_minutes", item.runtime_minutes));
   if (sectionKey === "upcoming" && item.release_date) subParts.push(item.release_date);
 
   const actions = [];
   if (item.kind === "show" && next && sectionKey !== "upcoming") {
-    const b = iconBtn("btn primary", "check", episodeCode(next), { title: `Mark ${episodeCode(next)} watched` });
+    const b = iconBtn("btn primary", "check", episodeCode(next), { title: t("action_markEp", episodeCode(next)) });
     b.addEventListener("click", () => runAction(b, { action: "watch", title: item.id, season: next.season, episode: next.number }, reload));
     actions.push(b);
   } else if (item.kind === "movie" && item.status !== "watched" && sectionKey !== "upcoming") {
-    const b = iconBtn("btn primary", "check", "Watched", { title: "Mark watched" });
+    const b = iconBtn("btn primary", "check", t("action_watched"), { title: t("action_markWatched") });
     b.addEventListener("click", () => runAction(b, { action: "watch", title: item.id }, reload));
     actions.push(b);
   }
@@ -276,12 +278,12 @@ function libraryCard(item, sectionKey, reload) {
 
 // ---------------- Search ----------------
 function renderSearch(panel, initialQuery = lastQuery) {
-  const input = el("input", { type: "search", placeholder: "Search shows and movies", value: initialQuery, "aria-label": "Search" });
+  const input = el("input", { type: "search", placeholder: t("search_placeholder"), value: initialQuery, "aria-label": t("tab_search") });
   const field = el("label", { class: "search-field" }, icon("search", 15), input);
-  const kind = el("select", { "aria-label": "Type" },
-    el("option", { value: "" }, "All"),
-    el("option", { value: "show" }, "Shows"),
-    el("option", { value: "movie" }, "Movies")
+  const kind = el("select", { "aria-label": t("search_type") },
+    el("option", { value: "" }, t("search_all")),
+    el("option", { value: "show" }, t("search_shows")),
+    el("option", { value: "movie" }, t("search_movies"))
   );
   const results = el("div", { id: "results" });
   const run = () => {
@@ -293,7 +295,7 @@ function renderSearch(panel, initialQuery = lastQuery) {
   panel.replaceChildren(el("div", { class: "search-row" }, field, kind), results);
   input.focus();
   if (initialQuery) doSearch(initialQuery, "", results);
-  else results.replaceChildren(emptyState("search", linkSession ? "Search for the show or movie that's playing." : "Tip: select text on any page, right-click, and choose “Search Bingers”."));
+  else results.replaceChildren(emptyState("search", linkSession ? t("search_pickHint") : t("search_tip")));
 }
 
 async function doSearch(q, kind, results) {
@@ -307,7 +309,7 @@ async function doSearch(q, kind, results) {
     const data = await send("search", { q, kind: kind || undefined, limit: 10 });
     if (q !== lastQuery) return; // stale
     const items = data?.items || [];
-    if (!items.length) return finishLoading(results, false, [emptyState("search", `No matches for “${q}”.`)]);
+    if (!items.length) return finishLoading(results, false, [emptyState("search", t("search_noMatches", q))]);
     let statuses = {};
     try {
       statuses = await send("check", { refs: items.map((t) => t.id) });
@@ -323,22 +325,22 @@ async function doSearch(q, kind, results) {
   }
 }
 
-function searchCard(t, status, reload) {
-  const sub = [t.kind === "show" ? "Show" : "Movie", t.year, (t.genres || []).slice(0, 2).join(", ")].filter(Boolean).join(" · ");
+function searchCard(item, status, reload) {
+  const sub = [item.kind === "show" ? t("search_show") : t("search_movie"), item.year, (item.genres || []).slice(0, 2).join(", ")].filter(Boolean).join(" · ");
   const actions = [];
   const add = (iconName, label, action, primary = false) => {
     const b = iconBtn(primary ? "btn primary" : "btn", iconName, label);
-    b.addEventListener("click", () => runAction(b, { ...action, title: t.id }, reload));
+    b.addEventListener("click", () => runAction(b, { ...action, title: item.id }, reload));
     actions.push(b);
   };
   if (linkSession) {
-    const b = el("button", { class: "btn primary" }, "This one");
+    const b = el("button", { class: "btn primary" }, t("search_thisOne"));
     b.addEventListener("click", async () => {
       b.disabled = true;
       try {
-        await send("trackerAction", { sessionId: linkSession, action: "link", titleId: t.id });
+        await send("trackerAction", { sessionId: linkSession, action: "link", titleId: item.id });
         linkSession = null;
-        toast("Got it. Cue will track this.", "ok");
+        toast(t("search_linked"), "ok");
         switchTab("next");
       } catch (e) {
         b.disabled = false;
@@ -347,15 +349,15 @@ function searchCard(t, status, reload) {
     });
     actions.push(b);
   } else if (!inLibrary(status)) {
-    add("plus", "Follow", { action: "follow" }, true);
-    add("clock", "Later", { action: "for_later" });
-  } else if (t.kind === "movie" && status !== "watched") {
-    add("check", "Watched", { action: "watch" }, true);
+    add("plus", t("action_follow"), { action: "follow" }, true);
+    add("clock", t("action_later"), { action: "for_later" });
+  } else if (item.kind === "movie" && status !== "watched") {
+    add("check", t("action_watched"), { action: "watch" }, true);
   }
   return el("div", { class: "card" },
-    poster(t.poster),
+    poster(item.poster),
     el("div", { class: "meta" },
-      el("button", { class: "name", title: t.title, onclick: () => openUrl(t.url) }, t.title),
+      el("button", { class: "name", title: item.title, onclick: () => openUrl(item.url) }, item.title),
       el("div", { class: "sub" }, sub, chip(status))
     ),
     el("div", { class: "actions" }, actions)
@@ -364,15 +366,8 @@ function searchCard(t, status, reload) {
 
 
 // ---------------- Now playing + auto-track toggle for the current site ----------------
-const STATE_TEXT = {
-  identifying: "Identifying…",
-  tracking: "Tracking",
-  confirm: "Marking it watched in a few seconds unless you skip",
-  watched: "Marked watched ✓",
-  unknown: "Couldn't tell what's playing",
-  ignored: "Not tracking this one",
-  error: "Something went wrong",
-};
+const STATES = ["identifying", "tracking", "confirm", "watched", "unknown", "ignored", "error"];
+const stateText = (state) => (STATES.includes(state) ? t(`state_${state}`) : state);
 
 // Embedded player hosts the tracker found in this tab that aren't turned on yet.
 async function missingEmbeds(tabId) {
@@ -433,23 +428,23 @@ async function renderLive(container) {
       renderLive(container);
     };
     parts.push(el("div", { class: "site-row" },
-      el("span", {}, el("span", { class: "live-dot" }), `Auto-tracking on ${host}`),
-      el("button", { class: "link small", onclick: turnOff }, everywhere ? "Skip this site" : "Turn off")
+      el("span", {}, el("span", { class: "live-dot" }), t("live_on", host)),
+      el("button", { class: "link small", onclick: turnOff }, everywhere ? t("live_skipSite") : t("live_turnOff"))
     ));
     // The video may play in an embedded player from another host, which needs its own approval.
     const missing = everywhere ? [] : await missingEmbeds(tab.id);
     if (missing.length && !np) {
       const names = missing.map((o) => o.replace(/^https?:\/\//, "").replace(/\/\*$/, "")).join(", ");
-      const b = iconBtn("btn primary", "play", "Track the player");
+      const b = iconBtn("btn primary", "play", t("live_trackPlayer"));
       b.addEventListener("click", async () => {
         const ok = await chrome.permissions.request({ origins: missing }).catch(() => false);
         if (ok) {
           await send("syncTracker").catch(() => {});
-          toast("Player turned on. Press play again if it doesn't pick it up.", "ok");
+          toast(t("live_playerOn"), "ok");
         }
         renderLive(container);
       });
-      parts.push(el("div", { class: "site-row" }, el("span", { class: "muted" }, `The video plays from ${names}`), b));
+      parts.push(el("div", { class: "site-row" }, el("span", { class: "muted" }, t("live_playsFrom", names)), b));
     }
     // A site we don't list yet: let the user tell the developer about it.
     if (reportsEnabled() && !isKnownSite(pattern)) {
@@ -465,21 +460,21 @@ async function renderLive(container) {
             await chrome.storage.local.set({ suggestedHosts: [...new Set([...list, host])].slice(-100) });
           }
         },
-      }, already ? "Suggested ✓" : "Suggest it");
+      }, already ? t("live_suggested") : t("live_suggest"));
       if (already) suggest.disabled = true;
       parts.push(el("div", { class: "site-row" },
-        el("span", { class: "muted small" }, already ? `You suggested ${host} to the developer.` : `${host} isn't on Cue's list of streaming sites yet.`),
+        el("span", { class: "muted small" }, already ? t("live_suggestedNote", host) : t("live_notListed", host)),
         suggest
       ));
     }
   } else if (skipped) {
-    const b = iconBtn("btn", "play", `Track ${host} again`);
+    const b = iconBtn("btn", "play", t("live_trackAgain", host));
     b.addEventListener("click", async () => {
       await chrome.storage.sync.set({ excludedHosts: excludedHosts.filter((h) => h !== hostname) });
-      toast(`Auto-tracking on ${host} again`, "ok");
+      toast(t("live_onAgain", host), "ok");
       renderLive(container);
     });
-    parts.push(el("div", { class: "site-row" }, el("span", { class: "muted" }, `Skipped on ${host}`), b));
+    parts.push(el("div", { class: "site-row" }, el("span", { class: "muted" }, t("live_skipped", host)), b));
   } else {
     // Chrome shows its own approval prompt. The popup may close while it's open; the
     // service worker finishes the setup either way.
@@ -493,9 +488,9 @@ async function renderLive(container) {
     };
     // Ask for the page's embedded player hosts in the same prompt (one click instead of two).
     const players = await pagePlayerOrigins(tab.id);
-    const b = iconBtn("btn primary", "play", `Track ${host}`, { onclick: turnOn([pattern, ...players.filter((o) => o !== pattern)], `Auto-tracking on ${host}. Play something!`) });
-    const all = el("button", { class: "link small", onclick: turnOn(ALL_SITES, "Auto-tracking on all websites") }, "or every website");
-    parts.push(el("div", { class: "site-row offer" }, el("span", { class: "muted" }, "Mark what you watch here automatically?"), el("span", { class: "offer-actions" }, b, all)));
+    const b = iconBtn("btn primary", "play", t("action_track", host), { onclick: turnOn([pattern, ...players.filter((o) => o !== pattern)], t("live_nowOn", host)) });
+    const all = el("button", { class: "link small", onclick: turnOn(ALL_SITES, t("live_allOn")) }, t("live_everySite"));
+    parts.push(el("div", { class: "site-row offer" }, el("span", { class: "muted" }, t("live_offer")), el("span", { class: "offer-actions" }, b, all)));
   }
   container.replaceChildren(...parts);
 }
@@ -510,11 +505,11 @@ function nowPlayingCard(np, container) {
     }
     renderLive(container);
   };
-  const title = np.label || np.detected || `Something on ${np.host}`;
-  let status = STATE_TEXT[np.state] || np.state;
+  const title = np.label || np.detected || t("np_something", np.host);
+  let status = stateText(np.state);
   const pct = np.state === "tracking" && np.progress ? Math.max(0, Math.min(100, Math.round(np.progress))) : null;
   if (pct != null) status += ` · ${pct}%`;
-  if (np.state === "tracking" && np.guessed) status += " · guessed your next episode";
+  if (np.state === "tracking" && np.guessed) status += ` · ${t("np_guessed")}`;
   if (np.state === "error" && np.message) status = np.message;
 
   const buttons = [];
@@ -526,9 +521,9 @@ function nowPlayingCard(np, container) {
     const current = known ? `S${String(np.season ?? 1).padStart(2, "0")} · E${String(np.episode).padStart(2, "0")}` : null;
     const choose = el("button", {
       class: known && !np.guessed ? "btn ep-btn" : "btn primary ep-btn",
-      title: known ? "Wrong episode? Change the season and episode" : "Set the season and episode",
+      title: known ? t("np_changeEp") : t("np_setEp"),
       "aria-expanded": "false",
-    }, known ? [current, icon("pencil", 12)] : "Choose episode");
+    }, known ? [current, icon("pencil", 12)] : t("np_chooseEp"));
     const toggle = (open) => {
       picker.hidden = !open;
       choose.setAttribute("aria-expanded", String(open));
@@ -548,9 +543,9 @@ function nowPlayingCard(np, container) {
   guesses.forEach((name, index) => {
     buttons.push(el("button", {
       class: index === 0 ? "btn primary" : "btn",
-      title: `Track ${name}`,
-      onclick: () => act({ action: "pick", index }, `Tracking ${name}`),
-    }, `Track ${name}`));
+      title: t("action_track", name),
+      onclick: () => act({ action: "pick", index }, t("action_tracking", name)),
+    }, t("action_track", name)));
   });
   if (["unknown", "tracking", "error"].includes(np.state) || np.needsEpisode) {
     buttons.push(el("button", {
@@ -560,31 +555,31 @@ function nowPlayingCard(np, container) {
         lastQuery = np.detected || "";
         switchTab("search");
       },
-    }, np.state === "unknown" ? "Pick title" : "Wrong title?"));
+    }, np.state === "unknown" ? t("np_pickTitle") : t("np_wrongTitle")));
   }
   if (reportsEnabled() && ["unknown", "error"].includes(np.state)) {
     buttons.push(el("button", {
       class: "btn",
-      title: "Send this site to the developer so Cue can learn it",
+      title: t("np_reportHint"),
       onclick: (e) => reportToDeveloper(`Cue couldn't read ${np.host}`, [
         `Site: ${np.host}`,
         `What Cue saw: ${np.detected || "(nothing)"}`,
         `Status: ${np.state}${np.message ? ` (${np.message})` : ""}`,
       ], e.currentTarget),
-    }, "Report"));
+    }, t("np_report")));
   }
-  if (np.state === "tracking") buttons.push(el("button", { class: "btn", onclick: () => act({ action: "ignore" }, "Won't track this one") }, "Stop"));
-  if (np.state === "watched") buttons.push(iconBtn("btn", "undo", "Undo", { onclick: () => act({ action: "undo" }, "Undone") }));
+  if (np.state === "tracking") buttons.push(el("button", { class: "btn", onclick: () => act({ action: "ignore" }, t("np_stopped")) }, t("np_stop")));
+  if (np.state === "watched") buttons.push(iconBtn("btn", "undo", t("action_undo"), { onclick: () => act({ action: "undo" }, t("action_undone")) }));
 
   // Progress toward the end of the video; full once marked watched.
   const fill = np.state === "watched" ? 100 : pct;
   const bar = fill != null
-    ? el("div", { class: "now-bar", role: "progressbar", "aria-label": "Watched so far", "aria-valuemin": "0", "aria-valuemax": "100", "aria-valuenow": String(fill) },
+    ? el("div", { class: "now-bar", role: "progressbar", "aria-label": t("np_progress"), "aria-valuemin": "0", "aria-valuemax": "100", "aria-valuenow": String(fill) },
       el("span", { style: `width:${fill}%` }))
     : null;
 
   return el("div", { class: `now state-${np.state}`, dataset: { session: np.sessionId, state: np.state } },
-    el("div", { class: "now-top" }, el("span", { class: "eyebrow" }, el("span", { class: "state-dot" }), `Now playing · ${np.host.replace(/^www\./, "")}`)),
+    el("div", { class: "now-top" }, el("span", { class: "eyebrow" }, el("span", { class: "state-dot" }), t("np_eyebrow", np.host.replace(/^www\./, "")))),
     el("div", { class: "now-title", title }, title),
     el("div", { class: "now-sub" }, status),
     bar,
@@ -599,11 +594,11 @@ function episodePicker(np, act, close) {
   const num = (name, label, value, min) =>
     el("label", { class: "ep-field" }, label,
       el("input", { type: "number", name, min: String(min), max: "9999", step: "1", inputmode: "numeric", value: value != null ? String(value) : "", placeholder: "#", required: "" }));
-  const save = el("button", { class: "btn primary", type: "submit" }, np.state === "watched" ? "Fix" : "Save");
-  const cancel = np.episode != null ? el("button", { class: "link small", type: "button", onclick: close }, "Cancel") : null;
+  const save = el("button", { class: "btn primary", type: "submit" }, np.state === "watched" ? t("ep_fix") : t("ep_save"));
+  const cancel = np.episode != null ? el("button", { class: "link small", type: "button", onclick: close }, t("ep_cancel")) : null;
   const form = el("form", { class: "ep-picker" },
-    num("season", "Season", np.season ?? 1, 0),
-    num("episode", "Episode", np.episode, 1),
+    num("season", t("ep_season"), np.season ?? 1, 0),
+    num("episode", t("ep_episode"), np.episode, 1),
     save,
     cancel
   );
@@ -613,19 +608,19 @@ function episodePicker(np, act, close) {
       close();
     }
   });
-  const hint = np.state === "watched" ? "Moves the watched mark to this episode." : np.guessed ? "Cue guessed this from your watch list." : null;
+  const hint = np.state === "watched" ? t("ep_hintMove") : np.guessed ? t("ep_hintGuessed") : null;
   if (hint) form.append(el("div", { class: "ep-hint" }, hint));
   form.addEventListener("submit", (e) => {
     e.preventDefault();
     const season = Number(form.elements.season.value);
     const episode = Number(form.elements.episode.value);
     if (!Number.isInteger(season) || season < 0 || !Number.isInteger(episode) || episode < 1) {
-      toast("Enter a season (0 or more) and an episode (1 or more).", "err");
+      toast(t("ep_invalid"), "err");
       return;
     }
     save.disabled = true;
     const code = `S${String(season).padStart(2, "0")}E${String(episode).padStart(2, "0")}`;
-    act({ action: "setEpisode", season, episode }, np.state === "watched" ? `Moved the watched mark to ${code}` : `Tracking ${code}`);
+    act({ action: "setEpisode", season, episode }, np.state === "watched" ? t("ep_moved", code) : t("action_tracking", code));
   });
   return form;
 }
@@ -646,7 +641,7 @@ async function init() {
     currentTab = null;
   }
   const p = session.profile;
-  who.textContent = p?.handle ? `@${p.handle}` : p?.name || "Signed in";
+  who.textContent = p?.handle ? `@${p.handle}` : p?.name || t("signin_signedIn");
 
   const { pendingSearch } = await chrome.storage.session.get("pendingSearch");
   if (pendingSearch) {

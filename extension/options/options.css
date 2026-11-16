@@ -16,7 +16,7 @@ body.options { width: auto; font-family: var(--font); max-height: none; min-heig
 .toggle { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; }
 .toggle input { margin-top: 3px; accent-color: var(--ok); }
 .signed-in { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-.status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); margin-right: 6px; }
+.status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); margin-inline-end: 6px; }
 code { font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
 code.block { display: block; padding: 8px 10px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; user-select: all; word-break: break-all; }
 summary { cursor: pointer; font-weight: 600; }
@@ -27,14 +27,14 @@ a { color: var(--text); }
 
 .allsites { margin: 6px 0 12px; padding: 12px 14px; background: var(--bg); border-radius: var(--radius); }
 #excluded { margin-top: 10px; }
-#excluded button { margin-left: 6px; }
+#excluded button { margin-inline-start: 6px; }
 .box h3 { margin: 18px 0 6px; font-size: 13px; }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 12px 0; }
 .grid2 label { display: flex; flex-direction: column; gap: 6px; color: var(--muted); }
 select { background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: var(--pill); padding: 8px 12px; font: inherit; font-size: 13px; }
 .toggle + .toggle, .grid2 + .toggle { margin-top: 10px; }
 .sites { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; margin-top: 8px; }
-.site { display: flex; align-items: center; justify-content: space-between; gap: 8px; background: var(--bg); border-radius: var(--pill); padding: 6px 6px 6px 14px; font-size: 13px; }
+.site { display: flex; align-items: center; justify-content: space-between; gap: 8px; background: var(--bg); border-radius: var(--pill); padding-block: 6px; padding-inline: 14px 6px; font-size: 13px; }
 .site .on { color: var(--ok); font-size: 12px; }
 .site button { font-size: 12px; padding: 5px 12px; }
 .sites[hidden] { display: none; }
@@ -53,29 +53,31 @@ select { background: var(--bg); color: var(--text); border: 1px solid var(--line
   transition: background .18s;
 }
 .toggle input[type="checkbox"]::after {
-  content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%;
+  content: ""; position: absolute; top: 3px; inset-inline-start: 3px; width: 16px; height: 16px; border-radius: 50%;
   background: var(--text); transition: transform .18s;
 }
 .toggle input[type="checkbox"]:checked { background: var(--ok); }
 .toggle input[type="checkbox"]:checked::after { transform: translateX(16px); background: var(--bg); }
+[dir="rtl"] .toggle input[type="checkbox"]:checked::after { transform: translateX(-16px); }
 .toggle input[type="checkbox"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .allsites { align-items: flex-start; }
 .allsites input[type="checkbox"] { margin-top: 2px; }
 
 /* selects with a custom arrow */
 select {
-  appearance: none; -webkit-appearance: none; cursor: pointer; padding-right: 32px;
+  appearance: none; -webkit-appearance: none; cursor: pointer; padding-inline-end: 32px;
   background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
   background-position: calc(100% - 17px) 50%, calc(100% - 12px) 50%;
   background-size: 5px 5px; background-repeat: no-repeat;
 }
+[dir="rtl"] select { background-position: 12px 50%, 17px 50%; }
 select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .grid2 label { font-size: 12px; }
 
 /* site list */
 .site { border: 1px solid var(--line); transition: border-color .15s; }
 .site:hover { border-color: var(--muted); }
-.site .on { display: inline-flex; align-items: center; gap: 4px; margin-left: 4px; }
+.site .on { display: inline-flex; align-items: center; gap: 4px; margin-inline-start: 4px; }
 
 .signed-in .status-dot { box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 25%, transparent); }
 details summary { list-style: none; display: flex; align-items: center; gap: 8px; }
@@ -116,7 +118,7 @@ details[open] summary::before { transform: rotate(45deg); }
 
 /* site list: name and state stacked, long names cut with …, button never squeezed */
 .sites { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; }
-.site { min-width: 0; border-radius: var(--radius); padding: 8px 8px 8px 14px; gap: 10px; }
+.site { min-width: 0; border-radius: var(--radius); padding-block: 8px; padding-inline: 14px 8px; gap: 10px; }
 .site-info { flex: 1; min-width: 0; }
 .site-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .site-state { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 5px; margin-top: 1px; }
@@ -124,3 +126,6 @@ details[open] summary::before { transform: rotate(45deg); }
 .site-state.on { color: var(--ok); }
 .site-state.on::before { background: var(--ok); }
 .site button { flex: none; }
+
+/* Host names stay left to right (and cut off at their end) in right-to-left languages too. */
+[dir="rtl"] .site-name { direction: ltr; text-align: right; }

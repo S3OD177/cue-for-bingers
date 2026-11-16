@@ -5,6 +5,16 @@ import { normalizeCheck } from "./lib/normalize.js";
 import * as tracker from "./lib/tracker-bg.js";
 import { syncSuggestions } from "./lib/suggest.js";
 import { posters, rememberPosters } from "./lib/posters.js";
+import { t, loadLanguage, pickedMessages } from "./lib/i18n.js";
+
+// The Language setting (Settings page). Messages wait for it, so replies use the right language.
+let languageReady = loadLanguage();
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== "sync" || !("uiLang" in changes)) return;
+  languageReady = loadLanguage().then(() => {
+    chrome.contextMenus.update("bingers-search", { title: t("menu_search") }, () => void chrome.runtime.lastError);
+  });
+});
 
 const CHECK_TTL_MS = 60_000;
 const checkCache = new Map(); // ref -> { at, value }
@@ -60,7 +70,7 @@ const handlers = {
       return await refreshProfile();
     } catch (e) {
       await auth.clearAuth();
-      if (e.status === 401) throw new Error("Bingers didn't accept that token. Check it was copied in full and hasn't been revoked.");
+      if (e.status === 401) throw new Error(t("err_tokenRejected"));
       throw e;
     }
   },
@@ -88,6 +98,8 @@ const handlers = {
     return res;
   },
   openOptions: () => chrome.runtime.openOptionsPage(),
+  // The language picked in Settings, for the IMDb/TMDB badge (null = same as Chrome).
+  uiStrings: () => pickedMessages(),
 
   // ---- auto-tracking ----
   track: (p, sender) => tracker.handleTrack(p, sender),
@@ -102,7 +114,7 @@ const handlers = {
 };
 
 // Content scripts run on third-party pages, so they only get a narrow set of operations.
-const CONTENT_SCRIPT_ALLOWED = new Set(["getSession", "check", "title", "actions", "openOptions", "track", "trackerAction", "trackerEmbeds"]);
+const CONTENT_SCRIPT_ALLOWED = new Set(["getSession", "check", "title", "actions", "openOptions", "track", "trackerAction", "trackerEmbeds", "uiStrings"]);
 // In-page notice buttons may only do these. "pick" can only choose among the titles Cue itself
 // suggested for that session (by index); free linking/episode edits stay in the popup.
 const CONTENT_TRACKER_ACTIONS = new Set(["ignore", "confirm", "undo", "pick", "firstEpisode"]);
@@ -131,7 +143,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return false;
   }
 
-  Promise.resolve()
+  languageReady
+    .catch(() => {})
     .then(() => handler(msg.payload || {}, sender))
     .then(
       (data) => sendResponse({ ok: true, data }),
@@ -142,9 +155,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
 // ---------- context menu: search selected text ----------
 chrome.runtime.onInstalled.addListener(async (details) => {
+  await languageReady.catch(() => {});
   chrome.contextMenus.create({
     id: "bingers-search",
-    title: 'Search Bingers for "%s"',
+    title: t("menu_search"),
     contexts: ["selection"],
   });
   if (details.reason === "install") chrome.runtime.openOptionsPage();

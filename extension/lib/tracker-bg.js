@@ -2,6 +2,7 @@
 // scrobbles, keeps "now playing" per tab for the popup, and drives the in-page notices.
 import { api } from "./api.js";
 import { RESERVED_ORIGINS, originPattern } from "./sites.js";
+import { t } from "./i18n.js";
 
 const DEFAULTS = { autoTrack: true, threshold: 90, minMinutes: 10, confirmBeforeMark: false };
 const RESOLVE_TTL_MS = 7 * 24 * 3600 * 1000;
@@ -161,11 +162,11 @@ async function setNowPlaying(tabId, value) {
 
 // Mirror the state on the toolbar icon for that tab, so it's visible without opening the popup.
 const ICON_STATES = {
-  tracking: { text: "▶", color: "#5fd38d", title: (v) => `Cue: tracking ${v.label}` },
-  watched: { text: "✓", color: "#5fd38d", title: (v) => `Cue: marked ${v.label} watched` },
-  confirm: { text: "?", color: "#f2c14e", title: (v) => `Cue: finished ${v.label}? Open to confirm` },
-  unknown: { text: "?", color: "#f2c14e", title: () => "Cue: couldn't tell what's playing. Open to pick it" },
-  error: { text: "!", color: "#ef6461", title: (v) => `Cue: ${v.message || "something went wrong"}` },
+  tracking: { text: "▶", color: "#5fd38d", title: (v) => t("icon_tracking", v.label) },
+  watched: { text: "✓", color: "#5fd38d", title: (v) => t("icon_watched", v.label) },
+  confirm: { text: "?", color: "#f2c14e", title: (v) => t("icon_confirm", v.label) },
+  unknown: { text: "?", color: "#f2c14e", title: () => t("icon_unknown") },
+  error: { text: "!", color: "#ef6461", title: (v) => t("icon_error", v.message || t("err_generic")) },
 };
 
 async function showOnIcon(tabId, value) {
@@ -204,7 +205,7 @@ const CONFIRM_SECONDS = 10;
 
 // countdown: seconds shown on the first button (the service worker does the action itself).
 function toast(s, text, actions = [], ttl = 7000, countdown = 0) {
-  chrome.tabs.sendMessage(s.tabId, { type: "cueToast", payload: { text, actions, ttl, countdown, sessionId: s.id } }, { frameId: s.frameId }).catch?.(() => {});
+  chrome.tabs.sendMessage(s.tabId, { type: "cueToast", payload: { text, actions, ttl, countdown, sessionId: s.id, dir: t("dir"), lang: t("lang"), dismiss: t("common_dismiss") } }, { frameId: s.frameId }).catch?.(() => {});
 }
 
 function playbackBody(s, progress) {
@@ -222,7 +223,7 @@ async function markWatchedDirectly(s) {
   const a = { action: "watch", title: s.res.id };
   if (s.res.kind !== "movie") Object.assign(a, { season: s.res.season, episode: s.res.episode });
   const r = (await api.actions([a]))?.results?.[0];
-  if (r && r.status !== "ok" && r.status !== "already") throw new Error(r.message || "Bingers couldn't save it.");
+  if (r && r.status !== "ok" && r.status !== "already") throw new Error(r.message || t("result_failed"));
 }
 
 async function markWatched(s) {
@@ -237,11 +238,11 @@ async function markWatched(s) {
     if (!recorded) await markWatchedDirectly(s);
     s.state = "watched";
     s.message = null;
-    toast(s, `Marked ${label(s.res)} watched`, [{ id: "undo", label: "Undo" }], 10000);
+    toast(s, t("notice_marked", label(s.res)), [{ id: "undo", label: t("action_undo") }], 10000);
   } catch (e) {
     s.state = "error";
     s.message = e.message;
-    toast(s, `Couldn't mark ${label(s.res)}: ${e.message}`, [], 8000);
+    toast(s, t("notice_couldntMark", label(s.res), e.message), [], 8000);
   }
 }
 
@@ -306,23 +307,23 @@ export async function handleTrack(p, sender) {
       if (s.res?.needsEpisode) {
         s.state = "unknown";
         const start = { season: s.meta?.season ?? 1, episode: 1 };
-        toast(s, `Watching ${s.res.title}?`, [{ id: "firstEpisode", label: `Track ${code(start.season, start.episode)}` }, { id: "ignore", label: "Not this" }], 12000);
+        toast(s, t("notice_watchingQ", s.res.title), [{ id: "firstEpisode", label: t("action_track", code(start.season, start.episode)) }, { id: "ignore", label: t("notice_notThis") }], 12000);
       } else if (!s.res) {
         s.state = "unknown";
         const [first, second] = s.suggestions;
         if (first) {
-          const actions = [{ id: "pick", index: 0, label: "Track it" }];
+          const actions = [{ id: "pick", index: 0, label: t("notice_trackIt") }];
           if (second) actions.push({ id: "pick", index: 1, label: label(second) });
-          actions.push({ id: "ignore", label: "Not this" });
-          toast(s, `Watching ${label(first)}?`, actions, 12000);
+          actions.push({ id: "ignore", label: t("notice_notThis") });
+          toast(s, t("notice_watchingQ", label(first)), actions, 12000);
         } else {
           const what = s.meta?.title || s.raw?.title;
-          toast(s, what ? `Cue couldn't find “${what}” on Bingers` : "Cue couldn't tell what's playing", [], 6000);
+          toast(s, what ? t("notice_notFound", what) : t("notice_unknown"), [], 6000);
         }
       } else {
         s.state = "tracking";
-        const note = s.res.guessed ? " (your next episode)" : "";
-        toast(s, `Tracking ${label(s.res)}${note}`, [{ id: "ignore", label: "Not this" }], 6000);
+        const text = s.res.guessed ? t("notice_trackingNext", label(s.res)) : t("action_tracking", label(s.res));
+        toast(s, text, [{ id: "ignore", label: t("notice_notThis") }], 6000);
       }
     })();
   }
@@ -336,7 +337,7 @@ export async function handleTrack(p, sender) {
       if (settings.confirmBeforeMark) {
         // Ask, but don't wait forever: mark it after 10 s unless the viewer skips.
         s.state = "confirm";
-        toast(s, `Finished ${label(s.res)}?`, [{ id: "confirm", label: "Mark watched" }, { id: "ignore", label: "Skip" }], 0, CONFIRM_SECONDS);
+        toast(s, t("notice_finishedQ", label(s.res)), [{ id: "confirm", label: t("action_markWatched") }, { id: "ignore", label: t("notice_skip") }], 0, CONFIRM_SECONDS);
         clearTimeout(s.confirmTimer);
         s.confirmTimer = setTimeout(async () => {
           if (s.state !== "confirm") return;
@@ -382,7 +383,7 @@ async function linkTitle(s, t) {
 export async function handleTrackerAction(p) {
   const { sessionId, action, titleId, delta } = p;
   const s = sessions.get(sessionId);
-  if (!s) throw new Error("That playback session has ended.");
+  if (!s) throw new Error(t("err_sessionEnded"));
 
   if (action === "ignore" || action === "confirm") clearTimeout(s.confirmTimer);
   if (action === "ignore") {
@@ -394,7 +395,7 @@ export async function handleTrackerAction(p) {
     if (s.res.kind !== "movie") Object.assign(a, { season: s.res.season, episode: s.res.episode });
     await api.actions([a]);
     s.state = "ignored";
-    toast(s, `Undone: ${label(s.res)} is unwatched again`, [], 5000);
+    toast(s, t("notice_undone", label(s.res)), [], 5000);
   } else if (action === "episode" && s.res && s.res.kind !== "movie") {
     await setEpisode(s, s.res.season ?? 1, Math.max(1, (s.res.episode || 0) + Number(delta || 0)));
   } else if (action === "season" && s.res && s.res.kind !== "movie") {
@@ -402,19 +403,19 @@ export async function handleTrackerAction(p) {
   } else if (action === "setEpisode" && s.res && s.res.kind !== "movie") {
     const season = Math.trunc(Number(p.season));
     const episode = Math.trunc(Number(p.episode));
-    if (!(season >= 0 && season < 1000 && episode >= 1 && episode < 10000)) throw new Error("Enter a season (0 or more) and an episode (1 or more).");
+    if (!(season >= 0 && season < 1000 && episode >= 1 && episode < 10000)) throw new Error(t("ep_invalid"));
     await setEpisode(s, season, episode);
   } else if (action === "link" && titleId) {
     await linkTitle(s, brief(await api.title(titleId)));
   } else if (action === "pick") {
     // In-page button: only one of the titles Cue itself suggested for this session.
-    const t = (s.suggestions || [])[Number(p.index)];
-    if (!t || s.state !== "unknown" || s.res) throw new Error("That suggestion is no longer available.");
-    await linkTitle(s, t);
-    toast(s, `Tracking ${label(s.res)}`, [{ id: "ignore", label: "Not this" }], 5000);
+    const pick = (s.suggestions || [])[Number(p.index)];
+    if (!pick || s.state !== "unknown" || s.res) throw new Error(t("err_suggestionGone"));
+    await linkTitle(s, pick);
+    toast(s, t("action_tracking", label(s.res)), [{ id: "ignore", label: t("notice_notThis") }], 5000);
   } else if (action === "firstEpisode" && s.res?.needsEpisode) {
     await setEpisode(s, s.meta?.season ?? 1, 1);
-    toast(s, `Tracking ${label(s.res)}`, [{ id: "ignore", label: "Not this" }], 5000);
+    toast(s, t("action_tracking", label(s.res)), [{ id: "ignore", label: t("notice_notThis") }], 5000);
   }
   await setNowPlaying(s.tabId, publicState(s));
   return publicState(s);

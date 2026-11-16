@@ -17,7 +17,13 @@ writeFileSync(cfgPath, readFileSync(cfgPath, "utf8").replace(/export const OAUTH
 // ---- chrome mock ----
 const store = {};
 let authFlowUrl = null;
+// UI text: the English bundle, with $1… filled in the way Chrome does.
+const enMessages = JSON.parse(readFileSync(join(here, "..", "extension", "_locales", "en", "messages.json"), "utf8"));
+const i18n = {
+  getMessage: (key, subs = []) => (enMessages[key]?.message ?? "").replace(/\$(\d)/g, (_, n) => subs[n - 1] ?? ""),
+};
 globalThis.chrome = {
+  i18n,
   storage: {
     local: {
       async get(k) { return typeof k === "string" ? (k in store ? { [k]: store[k] } : {}) : { ...store }; },

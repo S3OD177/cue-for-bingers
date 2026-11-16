@@ -1,5 +1,6 @@
 // Authentication: OAuth 2.1 + PKCE through chrome.identity, with a personal-access-token fallback.
 import { AUTH_ISSUER, OAUTH_CLIENT_ID, OAUTH_SCOPES, OAUTH_RESOURCE } from "./config.js";
+import { t } from "./i18n.js";
 
 const STORE_KEY = "auth";
 const EXPIRY_SKEW_MS = 60_000;
@@ -73,7 +74,7 @@ async function tokenRequest(endpoint, params) {
       body: new URLSearchParams(params).toString(),
     });
   } catch {
-    throw new AuthError("Couldn't reach Bingers to sign in. Check your connection.", "network");
+    throw new AuthError(t("err_authNetwork"), "network");
   }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
@@ -97,7 +98,7 @@ async function saveTokens(tokens, previous = null) {
 // ---------- sign-in flows ----------
 export async function signInWithOAuth() {
   if (!isOAuthConfigured()) {
-    throw new AuthError("Browser sign-in isn't set up in this build yet. Use a personal access token instead.", "oauth_not_configured");
+    throw new AuthError(t("err_oauthNotSetup"), "oauth_not_configured");
   }
   const d = await getDiscovery();
   const redirectUri = chrome.identity.getRedirectURL(); // https://<extension-id>.chromiumapp.org/
@@ -120,15 +121,15 @@ export async function signInWithOAuth() {
   try {
     responseUrl = await chrome.identity.launchWebAuthFlow({ url: url.toString(), interactive: true });
   } catch (e) {
-    throw new AuthError(/did not approve|cancel/i.test(e?.message || "") ? "Sign-in was cancelled." : `Sign-in failed: ${e?.message || e}`, "cancelled");
+    throw new AuthError(/did not approve|cancel/i.test(e?.message || "") ? t("err_cancelled") : `Sign-in failed: ${e?.message || e}`, "cancelled");
   }
-  if (!responseUrl) throw new AuthError("Sign-in was cancelled.", "cancelled");
+  if (!responseUrl) throw new AuthError(t("err_cancelled"), "cancelled");
 
   const params = new URL(responseUrl).searchParams;
   if (params.get("error")) throw new AuthError(params.get("error_description") || params.get("error"), "oauth_error");
-  if (params.get("state") !== state) throw new AuthError("Sign-in failed (state mismatch). Please try again.", "state_mismatch");
+  if (params.get("state") !== state) throw new AuthError(t("err_stateMismatch"), "state_mismatch");
   const code = params.get("code");
-  if (!code) throw new AuthError("Sign-in failed (no authorization code returned).", "oauth_error");
+  if (!code) throw new AuthError(t("err_noCode"), "oauth_error");
 
   const tokens = await tokenRequest(d.token_endpoint, {
     grant_type: "authorization_code",
@@ -142,11 +143,11 @@ export async function signInWithOAuth() {
 }
 
 export async function signInWithToken(token) {
-  const t = String(token || "").trim();
-  if (!/^bng_pat_[A-Za-z0-9_\-]+$/.test(t)) {
-    throw new AuthError("That doesn't look like a Bingers token. It should start with bng_pat_.", "invalid_token_format");
+  const tok = String(token || "").trim();
+  if (!/^bng_pat_[A-Za-z0-9_\-]+$/.test(tok)) {
+    throw new AuthError(t("err_tokenFormat"), "invalid_token_format");
   }
-  await setAuth({ mode: "pat", token: t });
+  await setAuth({ mode: "pat", token: tok });
 }
 
 export async function signOut() {
@@ -171,13 +172,13 @@ export async function signOut() {
 // ---------- access token for API calls ----------
 export async function getAccessToken({ forceRefresh = false } = {}) {
   const a = await getAuth();
-  if (!a) throw new AuthError("You're not signed in to Bingers.");
+  if (!a) throw new AuthError(t("err_notSignedIn"));
   if (a.mode === "pat") return a.token;
 
   if (!forceRefresh && a.access_token && a.expires_at - EXPIRY_SKEW_MS > Date.now()) return a.access_token;
   if (!a.refresh_token) {
     await clearAuth();
-    throw new AuthError("Your Bingers session expired. Please sign in again.", "expired");
+    throw new AuthError(t("err_expired"), "expired");
   }
   if (!refreshPromise) {
     refreshPromise = (async () => {
@@ -194,7 +195,7 @@ export async function getAccessToken({ forceRefresh = false } = {}) {
       } catch (e) {
         if (e.oauthError === "invalid_grant") {
           await clearAuth();
-          throw new AuthError("Your Bingers session expired. Please sign in again.", "expired");
+          throw new AuthError(t("err_expired"), "expired");
         }
         throw e;
       } finally {

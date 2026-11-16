@@ -40,6 +40,13 @@ Built and tested so far:
   follows a user action.
 - **Security:** no innerHTML with API data. Content scripts may call only the allow-listed message
   types in `background.js` (`CONTENT_SCRIPT_ALLOWED`, `CONTENT_TRACKER_ACTIONS`).
+- **Languages: English + Arabic (RTL).** All UI text is in `extension/_locales/{en,ar}/messages.json`
+  (same keys in both; `$1…` for values). Pages/SW use `t()` from `lib/i18n.js`; static HTML uses
+  `data-i18n*` attributes. Settings › Language (`uiLang` in sync storage: `auto` = Chrome's
+  language) overrides Chrome: pages/SW load the picked bundle, the IMDb badge gets it via the
+  `uiStrings` message, in-page notices get text + `dir` from the SW. CSS uses logical properties
+  (`margin-inline-start`, …) so `dir="rtl"` mirrors it. Brand, handles and host names stay LTR.
+  Error/report text sent to the developer's form stays English.
 - **API access** needs the Bingers Legend or Icon plan (403 otherwise). Rate limits: 60/min and
   1,000/hour per user. The `/library/check` status lookup is cached for 60 s.
 
@@ -76,6 +83,8 @@ tests/              run.mjs (auth/API, mocked), parse.test.cjs (title parser), e
 - UI preview without loading the extension: `python -m http.server 8765` in the repo root, then open
   `http://localhost:8765/tests/preview/popup.html?state=tracking` (also `watched`, `unknown`, `none`,
   `?empty=1`, `?signedout=1`) or `tests/preview/options.html`. `mock-chrome.js` fakes the `chrome` API.
-  The preview HTML files are copies of the real ones, so re-copy them if you change the page markup.
+  Add `&lang=ar` for Chrome in Arabic, or `&uiLang=ar` for the Language setting.
+  The preview HTML files are copies of the real ones: after changing page markup run
+  `node tests/preview/sync-html.cjs`.
 - Package for the store (PowerShell): `Compress-Archive -Path extension\* -DestinationPath cue-for-bingers.zip -Force`
 - Bump `version` in `extension/manifest.json` for every store upload.

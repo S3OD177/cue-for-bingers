@@ -1,5 +1,7 @@
 // Streaming sites offered as one-tap "turn on auto-tracking" buttons. Any other site can be
 // turned on from the popup ("Auto-track this site"). Each needs the user's approval in Chrome.
+import { t } from "./i18n.js";
+
 export const POPULAR_SITES = [
   { name: "Netflix", origin: "https://www.netflix.com/*" },
   { name: "Shahid", origin: "https://shahid.mbc.net/*" },
@@ -37,7 +39,7 @@ export function originPattern(url) {
 }
 
 export function siteLabel(pattern) {
-  if (isAllSitesPattern(pattern)) return "All websites";
+  if (isAllSitesPattern(pattern)) return t("opt_allWebsites");
   const known = POPULAR_SITES.find((s) => s.origin === pattern);
   if (known) return known.name;
   return pattern.replace(/^https?:\/\//, "").replace(/\/\*$/, "");
