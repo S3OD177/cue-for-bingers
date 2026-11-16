@@ -55,7 +55,7 @@ Lets users of the Bingers TV and movie tracker view and update their Bingers lib
 
 Certify all three: not sold to third parties; not used for unrelated purposes; not used for creditworthiness or lending.
 
-**Privacy policy URL:** `https://YOUR-DOMAIN/bingers-extension/privacy.html`
+**Privacy policy URL:** `https://s3od177.github.io/cue-for-bingers/privacy.html`
 
 ## Brand note
 The name uses "for Bingers" only to say which service it works with, and the icon is original. Don't add the Bingers logo unless Bingers approves it in writing (ask at legal@bingers.app).

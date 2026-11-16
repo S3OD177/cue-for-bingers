@@ -10,8 +10,9 @@ API docs: https://bingers.app/llms-full.txt · OpenAPI: https://api.bingers.app/
 Built and tested so far:
 - **Sign-in:** OAuth 2.1 + PKCE via `chrome.identity.launchWebAuthFlow` (client_id = URL of a hosted
   client-metadata JSON), with fallback to the user's own personal access token (`bng_pat_…`).
-  `OAUTH_CLIENT_ID` in `extension/lib/config.js` is still a placeholder (`YOUR-DOMAIN`). Until it's
-  set, only token sign-in is shown.
+  `OAUTH_CLIENT_ID` in `extension/lib/config.js` points at GitHub Pages (no custom domain):
+  `https://s3od177.github.io/cue-for-bingers/client-metadata.json`. `hosting/` is published there by
+  `.github/workflows/pages.yml` on pushes to main that touch it.
 - **Popup:** Up next (watch list + one-click mark watched), Search (follow / later / watched),
   Now playing card (auto-tracking state, Ep −/+, Pick title, Undo).
 - **IMDb/TMDB badge:** content script with the user's status and quick actions.
@@ -49,8 +50,8 @@ Built and tested so far:
    fields of `progress.next`. They're parsed defensively in `lib/normalize.js` and
    `episodeParts()` in `lib/ui.js`. Confirm against real responses.
 3. **Before publishing:** register as a Chrome Web Store developer, upload a draft to get the
-   extension ID, host `hosting/` (client-metadata.json + privacy.html) over HTTPS, fill in
-   `YOUR-DOMAIN`, `YOUR_EXTENSION_ID` and `YOUR-SUPPORT-EMAIL`, set `OAUTH_CLIENT_ID`, re-zip.
+   extension ID, replace `YOUR_EXTENSION_ID` in `hosting/client-metadata.json` and push (hosted file
+   only, no re-zip). Repo Settings › Pages › Source must be "GitHub Actions".
    Listing copy and permission justifications are in `store/STORE_LISTING.md`.
 4. Replace the mock-data store screenshot with real screenshots.
 

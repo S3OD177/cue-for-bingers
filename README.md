@@ -57,8 +57,8 @@ Each user can also paste **their own** personal access token in Settings. Until 
 1. **Register** as a Chrome Web Store developer (one-time US$5 fee): https://chrome.google.com/webstore/devconsole
 2. **Get your permanent extension ID.** Zip the `extension/` folder, upload it as a new item, and save it as a draft (don't submit yet). The dashboard shows the item ID. Your redirect URI is `https://<that-id>.chromiumapp.org/`.
    - Optional, for local testing with the same ID: in the dashboard go to *Package → View public key*, and add `"key": "<that key>"` to `manifest.json` while developing. Remove it before uploading.
-3. **Host the `hosting/` folder** on any HTTPS host (GitHub Pages, Vercel, Netlify, Cloudflare Pages). Replace `YOUR-DOMAIN` and `YOUR_EXTENSION_ID` in `client-metadata.json`, and `YOUR-SUPPORT-EMAIL` in `privacy.html`. The `client_id` value inside the JSON must exactly equal the URL it's served from.
-4. **Set `OAUTH_CLIENT_ID`** in `extension/lib/config.js` to that same URL.
+3. **`hosting/` is published to GitHub Pages** at `https://s3od177.github.io/cue-for-bingers/` by `.github/workflows/pages.yml` (repo Settings › Pages › Source: "GitHub Actions"). Replace `YOUR_EXTENSION_ID` in `hosting/client-metadata.json` with the item ID and push; no re-zip needed. The `client_id` value inside the JSON must exactly equal the URL it's served from.
+4. **`OAUTH_CLIENT_ID`** in `extension/lib/config.js` is already set to that same URL.
 5. **Test OAuth** with the unpacked extension (with the `key` in place): Settings → *Sign in with Bingers*.
 6. **Bump `version`** in `manifest.json` if needed, remove any `key`, then build the zip: `cd extension && zip -r ../cue-for-bingers.zip . -x '.*'`
 7. Upload the new zip to the draft, fill in the listing and privacy tabs from `store/STORE_LISTING.md`, and submit for review (usually a few days).

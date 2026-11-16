@@ -12,7 +12,7 @@ const lib = join(here, "..", "extension", "lib");
 const tmp = mkdtempSync(join(tmpdir(), "bingers-test-"));
 cpSync(lib, tmp, { recursive: true });
 const cfgPath = join(tmp, "config.js");
-writeFileSync(cfgPath, readFileSync(cfgPath, "utf8").replace("https://YOUR-DOMAIN/bingers-extension/client-metadata.json", "https://example.test/client.json"));
+writeFileSync(cfgPath, readFileSync(cfgPath, "utf8").replace(/export const OAUTH_CLIENT_ID = "[^"]*"/, 'export const OAUTH_CLIENT_ID = "https://example.test/client.json"'));
 
 // ---- chrome mock ----
 const store = {};
