@@ -60,7 +60,7 @@ Each user can also paste **their own** personal access token in Settings. Until 
 3. **`hosting/` is published to GitHub Pages** at `https://s3od177.github.io/cue-for-bingers/` from the `gh-pages` branch, which holds the contents of `hosting/`. After changing anything in `hosting/` and committing it, update the site with `git subtree split --prefix=hosting -b gh-pages` (delete the local `gh-pages` branch first if it exists) and `git push -f origin gh-pages`. Replace `YOUR_EXTENSION_ID` in `hosting/client-metadata.json` with the item ID and republish the same way; no re-zip needed. The `client_id` value inside the JSON must exactly equal the URL it's served from.
 4. **`OAUTH_CLIENT_ID`** in `extension/lib/config.js` is already set to that same URL.
 5. **Test OAuth** with the unpacked extension (with the `key` in place): Settings → *Sign in with Bingers*.
-6. **Bump `version`** in `manifest.json` if needed, remove any `key`, then build the zip: `cd extension && zip -r ../cue-for-bingers.zip . -x '.*'`
+6. **Bump `version`** in `manifest.json` if needed, remove any `key`, then build the zip: on Windows `powershell -ExecutionPolicy Bypass -File tools\package.ps1` (it refuses a manifest that still has `key`), on macOS/Linux `cd extension && zip -r ../cue-for-bingers.zip . -x '.*'`
 7. Upload the new zip to the draft, fill in the listing and privacy tabs from `store/STORE_LISTING.md`, and submit for review (usually a few days).
 
 ## Site reports (one-click "Suggest it" / "Report")
