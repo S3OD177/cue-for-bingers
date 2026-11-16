@@ -9,13 +9,23 @@
   let picked = null;
   const t = (key, ...subs) => {
     const own = picked?.[key]?.message;
-    if (own != null) return own.replace(/\$(\d)/g, (_, n) => String(subs[n - 1] ?? ""));
+    const rtl = (picked ? picked.dir?.message : safeMessage("dir")) === "rtl";
+    // Isolate inserted values in right-to-left text (see lib/i18n.js).
+    const vals = subs.map((s) => (rtl ? `\u2068${s}\u2069` : String(s)));
+    if (own != null) return own.replace(/\$(\d)/g, (_, n) => vals[n - 1] ?? "");
     try {
-      return chrome.i18n.getMessage(key, subs.map(String)) || key;
+      return chrome.i18n.getMessage(key, vals) || key;
     } catch {
       return key; // extension reloaded
     }
   };
+  function safeMessage(key) {
+    try {
+      return chrome.i18n.getMessage(key);
+    } catch {
+      return "";
+    }
+  }
   const dir = () => (t("dir") === "rtl" ? "rtl" : "ltr");
   let stringsLoaded = null;
   const loadStrings = () =>

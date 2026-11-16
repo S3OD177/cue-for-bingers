@@ -6,7 +6,7 @@ Albin Zaid, meant for publishing on the Chrome Web Store.
 
 API docs: https://bingers.app/llms-full.txt · OpenAPI: https://api.bingers.app/v1/openapi.json
 
-## Current state (v1.2.0)
+## Current state (v1.3.0)
 Built and tested so far:
 - **Sign-in:** OAuth 2.1 + PKCE via `chrome.identity.launchWebAuthFlow` (client_id = URL of a hosted
   client-metadata JSON), with fallback to the user's own personal access token (`bng_pat_…`).
@@ -27,6 +27,10 @@ Built and tested so far:
   "Skip this site" uses `excludedHosts` in sync storage. On the `POPULAR_SITES` that aren't on yet,
   `lib/suggest.js` uses `declarativeContent` to put a green dot on the toolbar icon, and the popup
   offers "▶ Track <site>" or "every website" (no host permission needed for the hint).
+- **Welcome page** (`welcome/`, opened on install): sign in, one-click site buttons, play.
+- **Debug info:** `lib/debuglog.js` keeps the last 40 API calls + tracker detections in session
+  storage (tokens/email redacted); Settings › "Copy debug info" copies it with versions and settings.
+- **Uninstall** opens the report Google Form (viewform, version prefilled).
 - **Settings page:** account, auto-tracking (threshold 80–95%, minimum video length, confirm before
   marking, sites), badge toggle.
 

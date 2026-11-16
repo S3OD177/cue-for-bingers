@@ -1,0 +1,23 @@
+/* First-run page. Builds on popup.css + options.css. */
+.hero-text { flex: 1; min-width: 0; }
+.hero .lang { align-self: flex-start; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+.steps { list-style: none; margin: 0; padding: 0; }
+.step { display: flex; gap: 14px; align-items: flex-start; }
+.step-num {
+  flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--panel-2); color: var(--text); font-weight: 700; font-size: 13px;
+}
+.step.done .step-num { background: var(--ok); color: var(--accent-ink); }
+.step-body { flex: 1; min-width: 0; }
+.step-body h2 { margin: 3px 0 8px; }
+.step-body p { margin: 0 0 10px; }
+.step-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 4px; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 10px; }
+.chips .btn.on { border-color: var(--ok-line); color: var(--ok); }
+
+@media (max-width: 520px) {
+  .hero { flex-wrap: wrap; }
+}

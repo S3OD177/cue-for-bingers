@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title data-i18n="welcome_pageTitle">Welcome to Cue for Bingers</title>
+    <link rel="stylesheet" href="../../extension/popup/popup.css" />
+    <link rel="stylesheet" href="../../extension/options/options.css" />
+    <link rel="stylesheet" href="../../extension/welcome/welcome.css" />
+  </head>
+  <body class="options">
+    <div class="wrap">
+      <header class="hero">
+        <img src="../../extension/icons/icon128.png" alt="" width="56" height="56" />
+        <div class="hero-text">
+          <h1 data-i18n="welcome_title">Welcome to Cue</h1>
+          <p class="muted" data-i18n="welcome_intro">Three quick steps and your episodes mark themselves watched in Bingers.</p>
+        </div>
+        <label class="lang small"><span class="sr" data-i18n="opt_language">Language</span><span id="lang-slot"></span></label>
+      </header>
+
+      <ol class="steps">
+        <li class="box step" id="step-account">
+          <div class="step-num" aria-hidden="true">1</div>
+          <div class="step-body">
+            <h2 data-i18n="welcome_step1">Connect your Bingers account</h2>
+            <div id="account-body" class="muted" data-i18n="common_loading">Loading…</div>
+          </div>
+        </li>
+
+        <li class="box step" id="step-sites">
+          <div class="step-num" aria-hidden="true">2</div>
+          <div class="step-body">
+            <h2 data-i18n="welcome_step2">Turn on the sites you watch on</h2>
+            <p class="muted small" data-i18n="welcome_step2Body">Chrome asks you to approve each site, and Cue only runs on the sites you approve. Pick some now, or later from the Cue icon while you're on any site.</p>
+            <div id="site-chips" class="chips"></div>
+            <button class="link small" id="all-sites" data-i18n="welcome_allSites">Or turn on every website</button>
+          </div>
+        </li>
+
+        <li class="box step">
+          <div class="step-num" aria-hidden="true">3</div>
+          <div class="step-body">
+            <h2 data-i18n="welcome_step3">Play something</h2>
+            <p class="muted small" data-i18n="welcome_step3Body">When you finish an episode or movie, Cue marks it watched in Bingers, with Undo. On IMDb and TMDB title pages you'll see your status too.</p>
+            <p class="muted small" data-i18n="welcome_pin">Tip: pin Cue to the toolbar. Click the puzzle-piece icon, then the pin next to Cue for Bingers.</p>
+            <button class="btn" id="open-settings" data-i18n="welcome_openSettings">Open Settings</button>
+          </div>
+        </li>
+      </ol>
+
+      <p class="foot muted small">Cue for Bingers · <span data-i18n="opt_foot">Unofficial, not affiliated with Bingers.</span></p>
+    </div>
+    <script src="../../tests/preview/mock-chrome.js"></script><script type="module" src="../../extension/welcome/welcome.js"></script>
+  </body>
+</html>

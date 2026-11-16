@@ -6,6 +6,19 @@ import * as tracker from "./lib/tracker-bg.js";
 import { syncSuggestions } from "./lib/suggest.js";
 import { posters, rememberPosters } from "./lib/posters.js";
 import { t, loadLanguage, pickedMessages } from "./lib/i18n.js";
+import { readLog } from "./lib/debuglog.js";
+import { REPORT_FORM, reportsEnabled } from "./lib/config.js";
+
+// Uninstalling opens the developer's feedback form (pre-filled with the version) so people can
+// say why, if they want to. Nothing is sent unless they submit it.
+function setUninstallForm() {
+  if (!reportsEnabled()) return;
+  const url = new URL(REPORT_FORM.action.replace(/\/formResponse$/, "/viewform"));
+  url.searchParams.set("usp", "pp_url");
+  url.searchParams.set(REPORT_FORM.fields.subject, "Uninstalled Cue");
+  url.searchParams.set(REPORT_FORM.fields.version, chrome.runtime.getManifest().version);
+  chrome.runtime.setUninstallURL(url.href).catch(() => {});
+}
 
 // The Language setting (Settings page). Messages wait for it, so replies use the right language.
 let languageReady = loadLanguage();
@@ -15,6 +28,20 @@ chrome.storage.onChanged.addListener((changes, area) => {
     chrome.contextMenus.update("bingers-search", { title: t("menu_search") }, () => void chrome.runtime.lastError);
   });
 });
+
+// Titles in the UI language where Bingers has them (Up next, Search, the IMDb badge). English is
+// the API's default, so it's not sent. Auto-tracking matches without it. If Bingers rejects the
+// language, ask again without it rather than fail.
+const apiLang = () => (t("lang") === "en" ? undefined : t("lang"));
+async function inUiLanguage(call) {
+  const lang = apiLang();
+  try {
+    return await call(lang);
+  } catch (e) {
+    if (lang && e.status === 400) return call(undefined);
+    throw e;
+  }
+}
 
 const CHECK_TTL_MS = 60_000;
 const checkCache = new Map(); // ref -> { at, value }
@@ -82,15 +109,15 @@ const handlers = {
   },
   redirectUrl: () => chrome.identity.getRedirectURL(),
 
-  watchlist: (p) => api.watchlist(p),
+  watchlist: (p) => inUiLanguage((lang) => api.watchlist({ ...p, lang })),
   recent: (p) => api.recent(p),
   async search({ q, kind, limit }) {
-    const res = await api.search(q, { kind, limit });
+    const res = await inUiLanguage((lang) => api.search(q, { kind, limit, lang }));
     rememberPosters(res?.items).catch(() => {});
     return res;
   },
   posters: ({ ids }) => posters(ids),
-  title: ({ ref }) => api.title(ref),
+  title: ({ ref }) => inUiLanguage((lang) => api.title(ref, { lang })),
   check: ({ refs }) => cachedCheck(Array.isArray(refs) ? refs.slice(0, 200) : []),
   async actions({ actions }) {
     const res = await api.actions(actions);
@@ -98,6 +125,21 @@ const handlers = {
     return res;
   },
   openOptions: () => chrome.runtime.openOptionsPage(),
+  // Settings › "Copy debug info": versions, settings and the recent log. No tokens or profile.
+  async debugInfo() {
+    const a = await auth.getAuth();
+    const settings = await chrome.storage.sync.get(null);
+    return {
+      extension: chrome.runtime.getManifest().version,
+      browser: navigator.userAgent,
+      chromeLanguage: chrome.i18n.getUILanguage(),
+      uiLanguage: t("lang"),
+      signIn: a ? a.mode : "signed out",
+      settings,
+      trackedSites: await tracker.trackedOrigins().catch(() => []),
+      log: await readLog(),
+    };
+  },
   // The language picked in Settings, for the IMDb/TMDB badge (null = same as Chrome).
   uiStrings: () => pickedMessages(),
 
@@ -161,7 +203,8 @@ chrome.runtime.onInstalled.addListener(async (details) => {
     title: t("menu_search"),
     contexts: ["selection"],
   });
-  if (details.reason === "install") chrome.runtime.openOptionsPage();
+  if (details.reason === "install") chrome.tabs.create({ url: chrome.runtime.getURL("welcome/welcome.html") });
+  setUninstallForm();
   // After an update or reload, the trackers in open tabs are cut off from the extension and
   // new ones only arrive on the next page load. Put fresh ones into the open tabs now, so a
   // video that's already playing is picked up without reloading the page.

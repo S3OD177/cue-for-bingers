@@ -1,6 +1,6 @@
 // Shared helpers for extension pages (popup + options). All DOM is built with
 // textContent/createElement — never innerHTML with API data.
-import { t } from "./i18n.js";
+import { t, LANGUAGES } from "./i18n.js";
 
 export { t, tNodes, localizePage, loadLanguage, LANGUAGES } from "./i18n.js";
 
@@ -14,6 +14,21 @@ export function send(type, payload) {
       else reject(Object.assign(new Error(res.error?.message || t("err_generic")), res.error || {}));
     });
   });
+}
+
+// The Language dropdown (Settings and the welcome page). Language names are shown in their own
+// language, so they're readable whatever is selected. Changing it saves and reloads the page.
+export function languageSelect(current) {
+  const select = el("select", { "aria-label": t("opt_language") },
+    el("option", { value: "auto" }, t("opt_languageAuto")),
+    LANGUAGES.map((l) => el("option", { value: l.code, lang: l.code }, l.name))
+  );
+  select.value = current;
+  select.addEventListener("change", async () => {
+    await chrome.storage.sync.set({ uiLang: select.value });
+    location.reload(); // redraw every label in the new language
+  });
+  return select;
 }
 
 export function el(tag, attrs = {}, ...children) {

@@ -2,6 +2,7 @@
 import { API_BASE } from "./config.js";
 import { getAccessToken, getAuth, clearAuth } from "./auth.js";
 import { t } from "./i18n.js";
+import { logApi } from "./debuglog.js";
 
 export class ApiError extends Error {
   constructor(status, code, message, extra = {}) {
@@ -27,6 +28,7 @@ async function request(path, { method = "GET", query, body } = {}, isRetry = fal
   }
 
   const token = await getAccessToken({ forceRefresh: isRetry });
+  const started = Date.now();
   const headers = { Authorization: `Bearer ${token}`, Accept: "application/json" };
   if (body !== undefined) headers["Content-Type"] = "application/json";
 
@@ -34,6 +36,7 @@ async function request(path, { method = "GET", query, body } = {}, isRetry = fal
   try {
     res = await fetch(url, { method, headers, body: body !== undefined ? JSON.stringify(body) : undefined });
   } catch {
+    logApi({ method, path, query, status: 0, ms: Date.now() - started, data: null });
     throw new ApiError(0, "network", t("err_network"));
   }
 
@@ -52,6 +55,7 @@ async function request(path, { method = "GET", query, body } = {}, isRetry = fal
       data = null;
     }
   }
+  logApi({ method, path, query, status: res.status, ms: Date.now() - started, data: data ?? (text ? text.slice(0, 300) : null) });
 
   if (!res.ok) {
     const err = (data && data.error) || {};

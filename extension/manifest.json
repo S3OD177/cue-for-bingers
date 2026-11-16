@@ -3,7 +3,7 @@
   "name": "Cue for Bingers",
   "short_name": "Cue",
   "default_locale": "en",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "__MSG_extDescription__",
   "minimum_chrome_version": "116",
   "icons": {

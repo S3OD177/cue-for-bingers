@@ -3,6 +3,7 @@
 import { api } from "./api.js";
 import { RESERVED_ORIGINS, originPattern } from "./sites.js";
 import { t } from "./i18n.js";
+import { logEvent } from "./debuglog.js";
 
 const DEFAULTS = { autoTrack: true, threshold: 90, minMinutes: 10, confirmBeforeMark: false };
 const RESOLVE_TTL_MS = 7 * 24 * 3600 * 1000;
@@ -328,6 +329,20 @@ export async function handleTrack(p, sender) {
     })();
   }
   await s.resolving;
+  if (!s.logged) {
+    // What the page said and what Cue made of it: the first thing to look at when a site is misread.
+    s.logged = true;
+    logEvent("track", {
+      host: s.host,
+      inFrame: s.frameId !== 0,
+      meta: s.meta,
+      raw: s.raw,
+      state: s.state,
+      matched: s.res ? { id: s.res.id, title: s.res.title, kind: s.res.kind, season: s.res.season, episode: s.res.episode, guessed: !!s.res.guessed } : null,
+      suggestions: (s.suggestions || []).map((x) => x.title),
+      message: s.message || null,
+    });
+  }
   s.progress = p.progress;
 
   if (s.state === "tracking") {

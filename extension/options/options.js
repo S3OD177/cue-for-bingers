@@ -1,4 +1,4 @@
-import { send, el, toast, t, tNodes, localizePage, loadLanguage, LANGUAGES } from "../lib/ui.js";
+import { send, el, toast, t, tNodes, localizePage, loadLanguage, languageSelect } from "../lib/ui.js";
 import { INTEGRATIONS_URL } from "../lib/config.js";
 import { ALL_SITES, isAllSitesPattern, siteLabel } from "../lib/sites.js";
 
@@ -7,22 +7,25 @@ localizePage();
 const saved = () => toast(t("common_saved"), "ok");
 
 // ---- language (default: same as Chrome) ----
-// Language names are shown in their own language, so they're readable whatever is selected.
-const langSelect = document.getElementById("ui-lang");
-langSelect.append(
-  el("option", { value: "auto" }, t("opt_languageAuto")),
-  ...LANGUAGES.map((l) => el("option", { value: l.code, lang: l.code }, l.name))
-);
-langSelect.value = uiLang;
-langSelect.addEventListener("change", async () => {
-  await chrome.storage.sync.set({ uiLang: langSelect.value });
-  location.reload(); // redraw every label in the new language
-});
+const langSelect = languageSelect(uiLang);
+langSelect.id = "ui-lang";
+document.getElementById("ui-lang").replaceWith(langSelect);
 
 const body = document.getElementById("account-body");
 const badge = document.getElementById("show-badge");
 
 document.getElementById("version").textContent = chrome.runtime.getManifest().version;
+
+// ---- debug info for the developer ----
+document.getElementById("copy-debug").addEventListener("click", async () => {
+  try {
+    const info = await send("debugInfo");
+    await navigator.clipboard.writeText(JSON.stringify(info, null, 2));
+    toast(t("opt_debugCopied"), "ok");
+  } catch (e) {
+    toast(e.message, "err");
+  }
+});
 
 // ---- badge setting (default on) ----
 chrome.storage.sync.get({ showBadge: true }).then(({ showBadge }) => (badge.checked = showBadge));

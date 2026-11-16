@@ -9,7 +9,8 @@ Paste these into the Developer Dashboard (https://chrome.google.com/webstore/dev
 **Summary (≤132 chars):**
 Unofficial Bingers companion: your next episode in the toolbar, your status on IMDb and TMDB, one-click mark as watched.
 
-**Category:** Entertainment  **Language:** English
+**Category:** Entertainment  **Language:** English (default). Add **Arabic** as a second language
+in the dashboard and paste the Arabic copy from the section below.
 
 **Description:**
 
@@ -19,6 +20,7 @@ Cue brings your Bingers TV and movie tracker into your browser, with your next e
 • Your status on IMDb and TMDB. Open any title page and a small badge shows whether it's in your library, whether you've watched it, and gives you one-click Follow, Watch later, Mark watched and Rate buttons.
 • Auto-tracking. Turn on the sites you watch on (Netflix, Shahid, OSN+, Prime Video, Disney+ and more, any other site, or all websites at once) and Cue marks episodes and movies watched in Bingers when you finish them, with one-tap Undo.
 • Search from anywhere. Search the Bingers catalog from the popup, or highlight a title on any page, right-click, and choose "Search Bingers".
+• In English and Arabic. Cue follows your browser's language, or pick one in Settings. Arabic is fully right-to-left.
 • Private by design. The extension talks only to the Bingers API. No analytics, no ads, no tracking.
 
 Requires a Bingers account on the Legend or Icon plan (needed for Bingers API access).
@@ -29,6 +31,32 @@ Cue is an independent extension built on the public Bingers API. It is not made 
 - Store icon 128×128: `store/store-icon-128.png`
 - At least 1 screenshot, 1280×800 or 640×400: use `store/screenshot-popup-1280x800.png` and add a real one of the IMDb badge once you've signed in
 - Small promo tile 440×280: `store/promo-440x280.png`
+
+## Arabic listing (العربية)
+
+The extension's name and short description in Arabic come from `extension/_locales/ar/messages.json`
+automatically. In the dashboard, add Arabic under *Store listing › Language* and paste these.
+Have a native speaker read them once before submitting.
+
+**Summary (≤132 chars):**
+رفيق غير رسمي لـ Bingers: حلقتك التالية في شريط الأدوات، وحالتك على IMDb وTMDB، وتسجيل المشاهدة بنقرة واحدة.
+
+**Description:**
+
+يجلب Cue متتبّع المسلسلات والأفلام Bingers إلى متصفحك، وحلقتك التالية جاهزة دائمًا.
+
+• التالي، على بُعد نقرة. افتح نافذة Cue من شريط الأدوات لترى الحلقة التالية من كل مسلسل تتابعه، وسجّلها كمُشاهَدة دون مغادرة الصفحة.
+• حالتك على IMDb وTMDB. افتح صفحة أي عنوان لتظهر شارة صغيرة توضّح إن كان في مكتبتك وإن كنت شاهدته، مع أزرار سريعة: تابِع، للمشاهدة لاحقًا، شاهدته، وتقييم.
+• تتبّع تلقائي. فعّل المواقع التي تشاهد عليها (Netflix وShahid وOSN+ وPrime Video وDisney+ وغيرها، أو أي موقع آخر، أو كل المواقع دفعة واحدة)، وسيسجّل Cue الحلقات والأفلام كمُشاهَدة في Bingers عند انتهائك منها، مع إمكانية التراجع بنقرة.
+• ابحث من أي مكان. ابحث في كتالوج Bingers من نافذة Cue، أو حدّد اسم عنوان في أي صفحة، وانقر بزر الفأرة الأيمن، واختر «ابحث في Bingers».
+• بالعربية والإنجليزية. يتبع Cue لغة متصفحك، أو اختر اللغة من الإعدادات. الواجهة العربية من اليمين إلى اليسار بالكامل.
+• الخصوصية أولًا. لا تتواصل الإضافة إلا مع واجهة Bingers البرمجية. لا تحليلات، ولا إعلانات، ولا تتبّع.
+
+يتطلّب حسابًا في Bingers بباقة Legend أو Icon (لازمة للوصول إلى واجهة Bingers البرمجية).
+
+Cue إضافة مستقلة مبنية على واجهة Bingers البرمجية العامة، وليست من صنع Bingers أو IMDb أو TMDB، ولا معتمدة منها، ولا تابعة لها.
+
+**Screenshots:** take the same shots with Settings › Language set to العربية.
 
 ## Privacy tab
 

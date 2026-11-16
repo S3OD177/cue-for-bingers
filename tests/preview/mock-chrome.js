@@ -38,6 +38,7 @@ const handlers = {
   actions: async () => (await wait(900), { results: [{ status: "ok" }] }),
   trackerAction: () => ({}),
   syncTracker: () => ({}),
+  debugInfo: () => ({ extension: "preview", log: [] }),
   trackedSites: () => ["https://www.netflix.com/*", "https://shahid.mbc.net/*", "https://www.streamrecorder.io/*", "https://a-really-long-streaming-site-name.example.com/*"],
   redirectUrl: () => "https://abcdefghijklmnop.chromiumapp.org/",
 };

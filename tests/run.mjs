@@ -54,6 +54,7 @@ const json = (status, body, headers = {}) => new Response(JSON.stringify(body), 
 const auth = await import(pathToFileURL(join(tmp, "auth.js")));
 const { api, encodeRef } = await import(pathToFileURL(join(tmp, "api.js")));
 const { normalizeCheck } = await import(pathToFileURL(join(tmp, "normalize.js")));
+const { redact } = await import(pathToFileURL(join(tmp, "debuglog.js")));
 
 let passed = 0;
 async function test(name, fn) {
@@ -193,6 +194,11 @@ await test("normalizeCheck handles plausible shapes", () => {
   assert.equal(normalizeCheck({ items: { "imdb:tt1": { status: "stopped" } } }, refs)["imdb:tt1"].status, "stopped");
   assert.equal(normalizeCheck({ results: [{ title: { id: "x" }, my_status: "started" }] }, refs)["imdb:tt1"].status, "started");
   assert.equal(normalizeCheck(null, refs)["imdb:tt2"].status, "unknown");
+});
+
+await test("debug log hides secret-looking fields", () => {
+  const out = redact({ handle: "viewer", email: "a@b.c", nested: [{ access_token: "x", title: "Dune" }], Authorization: "Bearer y" });
+  assert.deepEqual(out, { handle: "viewer", email: "[hidden]", nested: [{ access_token: "[hidden]", title: "Dune" }], Authorization: "[hidden]" });
 });
 
 console.log(`\n${passed} passed${process.exitCode ? ", some FAILED" : ""}`);

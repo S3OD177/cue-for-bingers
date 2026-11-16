@@ -42,14 +42,28 @@ export const pickedMessages = () => (picked ? { code: pickedCode, messages: pick
 // Fill $1…$9 the way chrome.i18n does.
 export const fillMessage = (message, subs) => message.replace(/\$(\d)/g, (_, n) => (subs[n - 1] ?? "")).replace(/\$\$/g, "$");
 
+function rtl() {
+  if (picked) return picked.dir?.message === "rtl";
+  try {
+    return chrome.i18n.getMessage("dir") === "rtl";
+  } catch {
+    return false;
+  }
+}
+
+// In a right-to-left language, each inserted value (a title, a site like "Disney+", a number)
+// is wrapped in invisible Unicode isolates, so its own direction can't scramble the sentence
+// (without them "تتبّع Disney+" shows as "تتبّع +Disney").
+const isolate = (subs) => subs.map((s) => (rtl() ? `\u2068${s}\u2069` : String(s)));
+
 // The text for `key`, with $1… replaced by `subs`. A missing key shows the key itself, so a
 // gap is visible instead of blank.
 export function t(key, ...subs) {
   const own = picked?.[key]?.message;
-  if (own != null) return fillMessage(own, subs.map(String));
+  if (own != null) return fillMessage(own, isolate(subs));
   let m = "";
   try {
-    m = chrome.i18n.getMessage(key, subs.map(String));
+    m = chrome.i18n.getMessage(key, isolate(subs));
   } catch {
     /* no chrome.i18n (unit tests without a mock) */
   }

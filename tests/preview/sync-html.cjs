@@ -1,4 +1,4 @@
-// Re-copy the popup and Settings HTML into tests/preview with paths that work from here and the
+// Re-copy the popup, Settings and welcome HTML into tests/preview with paths that work from here and the
 // fake `chrome` loaded first. Run after changing either page's markup:
 //   node tests/preview/sync-html.cjs
 const fs = require("fs");
@@ -21,6 +21,16 @@ const pages = {
       ['href="options.css"', 'href="../../extension/options/options.css"'],
       ['src="../icons/', 'src="../../extension/icons/'],
       ['<script type="module" src="options.js"></script>', '<script src="../../tests/preview/mock-chrome.js"></script><script type="module" src="../../extension/options/options.js"></script>'],
+    ],
+  },
+  "welcome.html": {
+    src: path.join(ext, "welcome", "welcome.html"),
+    swaps: [
+      ['href="../popup/popup.css"', 'href="../../extension/popup/popup.css"'],
+      ['href="../options/options.css"', 'href="../../extension/options/options.css"'],
+      ['href="welcome.css"', 'href="../../extension/welcome/welcome.css"'],
+      ['src="../icons/', 'src="../../extension/icons/'],
+      ['<script type="module" src="welcome.js"></script>', '<script src="../../tests/preview/mock-chrome.js"></script><script type="module" src="../../extension/welcome/welcome.js"></script>'],
     ],
   },
 };
