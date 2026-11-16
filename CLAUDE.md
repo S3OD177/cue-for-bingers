@@ -11,8 +11,9 @@ Built and tested so far:
 - **Sign-in:** OAuth 2.1 + PKCE via `chrome.identity.launchWebAuthFlow` (client_id = URL of a hosted
   client-metadata JSON), with fallback to the user's own personal access token (`bng_pat_…`).
   `OAUTH_CLIENT_ID` in `extension/lib/config.js` points at GitHub Pages (no custom domain):
-  `https://s3od177.github.io/cue-for-bingers/client-metadata.json`. `hosting/` is published there by
-  `.github/workflows/pages.yml` on pushes to main that touch it.
+  `https://s3od177.github.io/cue-for-bingers/client-metadata.json`. `hosting/` is served from the `gh-pages`
+  branch (branch-based Pages; Actions workflows can't run while the GitHub account is billing-locked).
+  Republish after committing hosting/ changes: `git branch -D gh-pages; git subtree split --prefix=hosting -b gh-pages; git push -f origin gh-pages`.
 - **Popup:** Up next (watch list + one-click mark watched), Search (follow / later / watched),
   Now playing card (auto-tracking state, Ep −/+, Pick title, Undo).
 - **IMDb/TMDB badge:** content script with the user's status and quick actions.
@@ -51,7 +52,7 @@ Built and tested so far:
    `episodeParts()` in `lib/ui.js`. Confirm against real responses.
 3. **Before publishing:** register as a Chrome Web Store developer, upload a draft to get the
    extension ID, replace `YOUR_EXTENSION_ID` in `hosting/client-metadata.json` and push (hosted file
-   only, no re-zip). Repo Settings › Pages › Source must be "GitHub Actions".
+   only, no re-zip), then republish gh-pages as above.
    Listing copy and permission justifications are in `store/STORE_LISTING.md`.
 4. Replace the mock-data store screenshot with real screenshots.
 
