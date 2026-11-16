@@ -1,6 +1,7 @@
 // Fake `chrome` API so the popup and Settings pages can be opened in a normal browser tab
 // for UI work: serve the repo root (python -m http.server 8765) and open
 // http://localhost:8765/tests/preview/popup.html?state=tracking
+// ?allsites=1 (all-websites mode, youtube skipped)
 // ?state= tracking | watched | unknown | identifying | none   ?signedout=1   ?empty=1
 const q = new URLSearchParams(location.search);
 const state = q.get("state") || "tracking";
@@ -35,7 +36,7 @@ const handlers = {
   actions: async () => (await wait(900), { results: [{ status: "ok" }] }),
   trackerAction: () => ({}),
   syncTracker: () => ({}),
-  trackedSites: () => ["https://www.netflix.com/*", "https://shahid.mbc.net/*"],
+  trackedSites: () => ["https://www.netflix.com/*", "https://shahid.mbc.net/*", "https://www.streamrecorder.io/*", "https://a-really-long-streaming-site-name.example.com/*"],
   redirectUrl: () => "https://abcdefghijklmnop.chromiumapp.org/",
 };
 
@@ -60,7 +61,7 @@ window.chrome = {
     openOptionsPage: () => {},
   },
   tabs: { query: async () => [{ id: 1, url: "https://www.netflix.com/watch/1" }], create: () => {}, sendMessage: async () => null },
-  storage: { session: store({ nowPlaying }), sync: store({}), local: store({}), onChanged: { addListener() {} } },
-  permissions: { contains: async ({ origins }) => origins.some((o) => o.includes("netflix")), request: async () => true, remove: async () => true, onAdded: { addListener() {} }, onRemoved: { addListener() {} } },
+  storage: { session: store({ nowPlaying }), sync: store(q.has("allsites") ? { excludedHosts: ["www.youtube.com"] } : {}), local: store({}), onChanged: { addListener() {} } },
+  permissions: { contains: async ({ origins }) => q.has("allsites") || origins.some((o) => o.includes("netflix")), request: async () => true, remove: async () => true, onAdded: { addListener() {} }, onRemoved: { addListener() {} } },
   scripting: { executeScript: async () => [] },
 };

@@ -163,6 +163,16 @@ async function renderSites() {
   granted.forEach(add);
   [...seenHosts, ...excludedHosts].forEach((h) => add(`https://${h}/*`));
 
+  // Name on top (cut short with … if long), state underneath, button on the right.
+  const siteRow = (origin, state, stateClass, btn) =>
+    el("div", { class: "site" },
+      el("div", { class: "site-info" },
+        el("div", { class: "site-name", title: hostOf(origin) }, siteLabel(origin)),
+        el("div", { class: `site-state ${stateClass}` }, state)
+      ),
+      btn
+    );
+
   const rows = [];
   for (const origin of all) {
     const host = hostOf(origin);
@@ -175,7 +185,7 @@ async function renderSites() {
         await chrome.storage.sync.set({ excludedHosts: next });
         renderSites();
       });
-      rows.push(el("div", { class: "site" }, el("span", {}, siteLabel(origin), skipped ? el("span", { class: "muted" }, " skipped") : el("span", { class: "on" }, " \u25cf on")), btn));
+      rows.push(siteRow(origin, skipped ? "Skipped" : "On", skipped ? "off" : "on", btn));
       continue;
     }
     const on = granted.includes(origin);
@@ -186,7 +196,7 @@ async function renderSites() {
       if (done) await send("syncTracker").catch(() => {});
       renderSites();
     });
-    rows.push(el("div", { class: "site" }, el("span", {}, siteLabel(origin), on ? el("span", { class: "on" }, " \u25cf on") : null), btn));
+    rows.push(siteRow(origin, on ? "On" : "Off", on ? "on" : "off", btn));
   }
   if (!rows.length) rows.push(el("p", { class: "muted small" }, "No sites yet. Open a site you watch on, click the Cue icon, then turn it on."));
   sitesEl.replaceChildren(...rows);
