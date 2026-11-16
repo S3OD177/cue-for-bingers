@@ -98,7 +98,8 @@ async function render(note) {
 render();
 
 // ---- auto-tracking ----
-const TRACK_DEFAULTS = { autoTrack: true, threshold: 90, minMinutes: 10, confirmBeforeMark: false };
+const TRACK_DEFAULTS = { autoTrack: true, threshold: 90, minMinutes: 10, confirmBeforeMark: false, skipVideoPlatforms: true };
+const skipPlatforms = document.getElementById("skip-platforms");
 const autoTrack = document.getElementById("auto-track");
 const threshold = document.getElementById("threshold");
 const minMinutes = document.getElementById("min-minutes");
@@ -110,7 +111,9 @@ chrome.storage.sync.get(TRACK_DEFAULTS).then((s) => {
   threshold.value = String(s.threshold);
   minMinutes.value = String(s.minMinutes);
   confirmMark.checked = s.confirmBeforeMark;
+  skipPlatforms.checked = s.skipVideoPlatforms;
 });
+skipPlatforms.addEventListener("change", () => chrome.storage.sync.set({ skipVideoPlatforms: skipPlatforms.checked }).then(saved));
 autoTrack.addEventListener("change", () => chrome.storage.sync.set({ autoTrack: autoTrack.checked }).then(saved));
 threshold.addEventListener("change", () => chrome.storage.sync.set({ threshold: Number(threshold.value) }).then(saved));
 minMinutes.addEventListener("change", () => chrome.storage.sync.set({ minMinutes: Number(minMinutes.value) }).then(saved));

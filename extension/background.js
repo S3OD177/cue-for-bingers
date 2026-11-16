@@ -148,7 +148,13 @@ chrome.runtime.onInstalled.addListener(async (details) => {
     contexts: ["selection"],
   });
   if (details.reason === "install") chrome.runtime.openOptionsPage();
-  tracker.syncTrackerScripts().catch(() => {});
+  // After an update or reload, the trackers in open tabs are cut off from the extension and
+  // new ones only arrive on the next page load. Put fresh ones into the open tabs now, so a
+  // video that's already playing is picked up without reloading the page.
+  tracker
+    .syncTrackerScripts()
+    .then((origins) => origins.length && tracker.injectIntoOpenTabs(origins))
+    .catch(() => {});
   syncSuggestions().catch(() => {});
 });
 

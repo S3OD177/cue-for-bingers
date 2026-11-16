@@ -14,6 +14,11 @@ export const POPULAR_SITES = [
   { name: "Shooflive", origin: "https://p4.shooflive.sbs/*" }, // added at the owner's request (user report)
 ];
 
+// User-video sites skipped by default ("Skip YouTube and similar sites" in Settings).
+// Keep in sync with the copy in content/tracker.js.
+export const VIDEO_PLATFORMS = ["youtube.com", "youtu.be", "youtube-nocookie.com", "vimeo.com", "dailymotion.com", "twitch.tv", "kick.com", "tiktok.com", "facebook.com", "instagram.com", "x.com", "twitter.com", "reddit.com", "rumble.com", "odysee.com", "bilibili.com", "bitchute.com", "streamable.com"];
+export const isVideoPlatform = (host) => VIDEO_PLATFORMS.some((d) => host === d || host.endsWith(`.${d}`));
+
 // Origins the extension holds for its own reasons; never treated as "tracked sites".
 // "Auto-track on all websites": optional, requested only when the user flips the switch.
 export const ALL_SITES = ["https://*/*", "http://*/*"];

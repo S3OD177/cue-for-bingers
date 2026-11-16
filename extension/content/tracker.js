@@ -2,12 +2,29 @@
 // Finds the main <video>, reads what's playing, and reports start / pause / watched to the
 // service worker, which talks to Bingers. Needs lib/parse.js loaded first (CueParse).
 (() => {
-  if (window.__cueTracker) return;
-  window.__cueTracker = true;
+  // Skip if a working tracker is already here. One left over from before the extension was
+  // reloaded can't reach the extension any more (chrome.runtime.id is gone), so replace it.
+  // Builds before this one set a plain `true` here; one of those can only be a leftover from
+  // before the reload that injected this copy, so it's replaced too.
+  const prev = window.__cueTracker;
+  if (prev && prev !== true && prev.alive()) return;
+  if (typeof prev?.stop === "function") prev.stop();
+  const alive = () => {
+    try {
+      return !!chrome.runtime?.id;
+    } catch {
+      return false;
+    }
+  };
   const Parse = globalThis.CueParse;
   if (!Parse) return;
 
-  let settings = { autoTrack: true, threshold: 90, minMinutes: 10, excludedHosts: [] };
+  let settings = { autoTrack: true, threshold: 90, minMinutes: 10, excludedHosts: [], skipVideoPlatforms: true };
+  // User-video sites (YouTube and the like): long videos there are rarely a TV episode or movie,
+  // so Cue skips them unless the user turns "Skip YouTube and similar sites" off in Settings.
+  // Keep in sync with VIDEO_PLATFORMS in lib/sites.js.
+  const VIDEO_PLATFORMS = ["youtube.com", "youtu.be", "youtube-nocookie.com", "vimeo.com", "dailymotion.com", "twitch.tv", "kick.com", "tiktok.com", "facebook.com", "instagram.com", "x.com", "twitter.com", "reddit.com", "rumble.com", "odysee.com", "bilibili.com", "bitchute.com", "streamable.com"];
+  const isVideoPlatform = (h) => VIDEO_PLATFORMS.some((d) => h === d || h.endsWith(`.${d}`));
   const isTop = window.top === window;
   // The site the user is on. Many sites play the video in an embedded player from another
   // host (often two iframes deep), so a frame names the top page, not itself.
@@ -21,7 +38,10 @@
     }
     return location.hostname;
   }
-  const hostExcluded = () => (settings.excludedHosts || []).includes(pageHost());
+  const hostExcluded = () =>
+    (settings.excludedHosts || []).includes(pageHost()) ||
+    // Also skips a YouTube clip embedded in another page (the frame's own host).
+    (settings.skipVideoPlatforms !== false && (isVideoPlatform(pageHost()) || isVideoPlatform(location.hostname)));
   chrome.storage.sync.get(settings).then((s) => (settings = s)).catch(() => {});
   chrome.storage.onChanged.addListener((c, area) => {
     if (area === "sync") for (const k of Object.keys(settings)) if (k in c) settings[k] = c[k].newValue;
@@ -245,26 +265,34 @@
     lastUrl = location.href;
   }
 
-  function stop() {
-    clearInterval(timer);
-    try {
-      detach();
-    } catch {
-      /* ignore */
-    }
-  }
-
-  timer = setInterval(tick, 2000);
-  tick();
   // Media events don't bubble, but they can be caught on the way down: notice a video the moment
   // it knows its length or starts playing, instead of waiting for the next 2-second check.
+  const MEDIA_EVENTS = ["loadedmetadata", "durationchange", "playing"];
   let soon = null;
   const tickSoon = (e) => {
     if (e.target?.tagName !== "VIDEO" || (e.target === video && e.type !== "durationchange")) return;
     clearTimeout(soon);
     soon = setTimeout(tick, 50);
   };
-  for (const type of ["loadedmetadata", "durationchange", "playing"]) document.addEventListener(type, tickSoon, true);
+
+  let stopped = false;
+  function stop() {
+    if (stopped) return; // detach() reports a pause, which calls stop() again if the extension is gone
+    stopped = true;
+    clearInterval(timer);
+    clearTimeout(soon);
+    for (const type of MEDIA_EVENTS) document.removeEventListener(type, tickSoon, true);
+    try {
+      detach();
+    } catch {
+      /* ignore */
+    }
+  }
+  window.__cueTracker = { alive, stop };
+
+  for (const type of MEDIA_EVENTS) document.addEventListener(type, tickSoon, true);
+  timer = setInterval(tick, 2000);
+  tick();
   window.addEventListener("pagehide", () => {
     if (session?.startedSent && !session.watchedSent) report("pause");
   });

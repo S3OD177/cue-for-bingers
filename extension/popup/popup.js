@@ -176,12 +176,28 @@ function switchTab(tab) {
 }
 
 // ---------------- Up next ----------------
+// First load shows placeholder rows; a refresh (after an action) keeps the list on screen,
+// dimmed, until the new one arrives.
+function startLoading(container, rows) {
+  const refresh = !!container.querySelector(".card:not(.sk-card)");
+  if (refresh) container.classList.add("stale");
+  else container.replaceChildren(skeleton(rows, true));
+  return refresh;
+}
+
+function finishLoading(container, refresh, children) {
+  container.classList.remove("stale");
+  container.classList.toggle("no-anim", refresh);
+  container.replaceChildren(...children);
+}
+
 async function renderUpNext(panel) {
-  panel.replaceChildren(skeleton(4, true));
+  const refresh = startLoading(panel, 4);
   let data;
   try {
     data = await send("watchlist", { limit: 10 });
   } catch (e) {
+    panel.classList.remove("stale");
     return showError(panel, e);
   }
   const sections = data?.sections || {};
@@ -202,14 +218,17 @@ async function renderUpNext(panel) {
     out.push(emptyState("tv", "Nothing queued up. Find something in Search and follow it."));
   }
   if (data?.truncated) out.push(el("div", { class: "muted fine center-note" }, "Showing your most recent titles."));
-  panel.replaceChildren(...out);
+  finishLoading(panel, refresh, out);
   fillPosters(panel);
 }
 
 // The watch list has no posters: show placeholders first, then swap in posters from one
 // batched (and cached) lookup in the service worker.
+// Posters already looked up while this popup is open, so a refresh draws them straight away.
+const knownPosters = new Map();
+
 async function fillPosters(panel) {
-  const slots = [...panel.querySelectorAll(".poster[data-id]")];
+  const slots = [...panel.querySelectorAll(".poster.ph[data-id]")];
   if (!slots.length) return;
   let urls = {};
   try {
@@ -219,6 +238,7 @@ async function fillPosters(panel) {
   }
   for (const slot of slots) {
     const url = urls?.[slot.dataset.id];
+    knownPosters.set(slot.dataset.id, url || null);
     if (url && slot.isConnected) slot.replaceWith(poster(url));
   }
 }
@@ -242,8 +262,8 @@ function libraryCard(item, sectionKey, reload) {
     actions.push(b);
   }
 
-  const slot = poster(null);
-  if (item.id) slot.dataset.id = item.id;
+  const slot = poster(knownPosters.get(item.id) || null);
+  if (item.id && !knownPosters.has(item.id)) slot.dataset.id = item.id;
   return el("div", { class: "card" },
     slot,
     el("div", { class: "meta" },
@@ -282,12 +302,12 @@ async function doSearch(q, kind, results) {
     results.replaceChildren();
     return;
   }
-  results.replaceChildren(skeleton(3, true));
+  const refresh = startLoading(results, 3);
   try {
     const data = await send("search", { q, kind: kind || undefined, limit: 10 });
     if (q !== lastQuery) return; // stale
     const items = data?.items || [];
-    if (!items.length) return results.replaceChildren(emptyState("search", `No matches for “${q}”.`));
+    if (!items.length) return finishLoading(results, false, [emptyState("search", `No matches for “${q}”.`)]);
     let statuses = {};
     try {
       statuses = await send("check", { refs: items.map((t) => t.id) });
@@ -295,8 +315,10 @@ async function doSearch(q, kind, results) {
       /* status is a nice-to-have */
     }
     if (q !== lastQuery) return;
-    results.replaceChildren(...items.map((t) => searchCard(t, statuses[t.id]?.status, () => doSearch(q, kind, results))));
+    finishLoading(results, refresh, items.map((t) => searchCard(t, statuses[t.id]?.status, () => doSearch(q, kind, results))));
   } catch (e) {
+    if (q !== lastQuery) return;
+    results.classList.remove("stale");
     showError(results, e);
   }
 }
@@ -561,7 +583,7 @@ function nowPlayingCard(np, container) {
       el("span", { style: `width:${fill}%` }))
     : null;
 
-  return el("div", { class: `now state-${np.state}` },
+  return el("div", { class: `now state-${np.state}`, dataset: { session: np.sessionId, state: np.state } },
     el("div", { class: "now-top" }, el("span", { class: "eyebrow" }, el("span", { class: "state-dot" }), `Now playing · ${np.host.replace(/^www\./, "")}`)),
     el("div", { class: "now-title", title }, title),
     el("div", { class: "now-sub" }, status),
@@ -638,3 +660,24 @@ async function init() {
 }
 
 init();
+
+// Keep Now playing current while the popup is open. Progress ticks only patch the status
+// line and bar; a new state redraws the row, unless the viewer is typing in the episode picker.
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== "session" || !changes.nowPlaying || !currentTab?.id) return;
+  const live = document.getElementById("live");
+  if (!live) return;
+  if (live.contains(document.activeElement) && document.activeElement.tagName === "INPUT") return;
+  const np = changes.nowPlaying.newValue?.[currentTab.id];
+  const card = live.querySelector(".now");
+  if (np && card && card.dataset.session === np.sessionId && card.dataset.state === np.state) {
+    const fresh = nowPlayingCard(np, live);
+    for (const sel of [".now-sub", ".now-bar"]) {
+      const a = card.querySelector(sel), b = fresh.querySelector(sel);
+      if (a && b) a.replaceWith(b);
+    }
+    return;
+  }
+  live.classList.add("no-anim");
+  renderLive(live);
+});

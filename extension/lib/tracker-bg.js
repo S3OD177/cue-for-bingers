@@ -216,10 +216,25 @@ function playbackBody(s, progress) {
   return body;
 }
 
+// Mark it the way the popup's "Watched" button does. The scrobble stop isn't always recorded
+// (Bingers doesn't say why: e.g. no matching start after the extension reloaded).
+async function markWatchedDirectly(s) {
+  const a = { action: "watch", title: s.res.id };
+  if (s.res.kind !== "movie") Object.assign(a, { season: s.res.season, episode: s.res.episode });
+  const r = (await api.actions([a]))?.results?.[0];
+  if (r && r.status !== "ok" && r.status !== "already") throw new Error(r.message || "Bingers couldn't save it.");
+}
+
 async function markWatched(s) {
   try {
-    const r = await api.playback("stop", playbackBody(s, Math.max(s.progress, 80)));
-    if (r && r.recorded === false) throw new Error(r.message || "Bingers didn't record it.");
+    let recorded = false;
+    try {
+      const r = await api.playback("stop", playbackBody(s, Math.max(s.progress, 80)));
+      recorded = !(r && r.recorded === false);
+    } catch (e) {
+      if (e.status === 401 || e.status === 403 || e.status === 429) throw e; // the fallback would fail the same way
+    }
+    if (!recorded) await markWatchedDirectly(s);
     s.state = "watched";
     s.message = null;
     toast(s, `Marked ${label(s.res)} watched`, [{ id: "undo", label: "Undo" }], 10000);
