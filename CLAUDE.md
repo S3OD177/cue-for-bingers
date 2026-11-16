@@ -14,6 +14,8 @@ Built and tested so far:
   `https://s3od177.github.io/cue-for-bingers/client-metadata.json`. `hosting/` is served from the `gh-pages`
   branch (branch-based Pages; Actions workflows can't run while the GitHub account is billing-locked).
   Republish after committing hosting/ changes: `git branch -D gh-pages; git subtree split --prefix=hosting -b gh-pages; git push -f origin gh-pages`.
+  When you change `hosting/site.css`, bump `?v=` on its <link> in index.html and privacy.html, or browsers pair
+  the new HTML with a cached old stylesheet (GitHub Pages caches for ~10 min).
 - **Popup:** Up next (watch list + one-click mark watched), Search (follow / later / watched),
   Now playing card (auto-tracking state, Ep −/+, Pick title, Undo).
 - **IMDb/TMDB badge:** content script with the user's status and quick actions.
@@ -90,5 +92,6 @@ tests/              run.mjs (auth/API, mocked), parse.test.cjs (title parser), e
   Add `&lang=ar` for Chrome in Arabic, or `&uiLang=ar` for the Language setting.
   The preview HTML files are copies of the real ones: after changing page markup run
   `node tests/preview/sync-html.cjs`.
-- Package for the store (PowerShell): `Compress-Archive -Path extension\* -DestinationPath cue-for-bingers.zip -Force`
+- Package for the store: `powershell -ExecutionPolicy Bypass -File tools\package.ps1` → `cue-for-bingers.zip`
+  (forward-slash paths; don't use `Compress-Archive`, which writes backslashes on PowerShell 5.1).
 - Bump `version` in `extension/manifest.json` for every store upload.
