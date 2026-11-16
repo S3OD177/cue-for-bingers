@@ -8,7 +8,6 @@ const body = document.getElementById("account-body");
 const badge = document.getElementById("show-badge");
 
 document.getElementById("version").textContent = chrome.runtime.getManifest().version;
-send("redirectUrl").then((u) => (document.getElementById("redirect-url").textContent = u)).catch(() => {});
 
 // ---- badge setting (default on) ----
 chrome.storage.sync.get({ showBadge: true }).then(({ showBadge }) => (badge.checked = showBadge));
@@ -108,13 +107,22 @@ const sitesEl = document.getElementById("sites");
 
 chrome.storage.sync.get(TRACK_DEFAULTS).then((s) => {
   autoTrack.checked = s.autoTrack;
+  showDependents();
   threshold.value = String(s.threshold);
   minMinutes.value = String(s.minMinutes);
   confirmMark.checked = s.confirmBeforeMark;
   skipPlatforms.checked = s.skipVideoPlatforms;
 });
 skipPlatforms.addEventListener("change", () => chrome.storage.sync.set({ skipVideoPlatforms: skipPlatforms.checked }).then(saved));
-autoTrack.addEventListener("change", () => chrome.storage.sync.set({ autoTrack: autoTrack.checked }).then(saved));
+// The other auto-tracking settings do nothing while it's off, so they're dimmed.
+function showDependents() {
+  document.getElementById("autotrack").classList.toggle("off", !autoTrack.checked);
+  for (const input of document.querySelectorAll("#autotrack .dep input, #autotrack .dep select")) input.disabled = !autoTrack.checked;
+}
+autoTrack.addEventListener("change", () => {
+  showDependents();
+  chrome.storage.sync.set({ autoTrack: autoTrack.checked }).then(saved);
+});
 threshold.addEventListener("change", () => chrome.storage.sync.set({ threshold: Number(threshold.value) }).then(saved));
 minMinutes.addEventListener("change", () => chrome.storage.sync.set({ minMinutes: Number(minMinutes.value) }).then(saved));
 confirmMark.addEventListener("change", () => chrome.storage.sync.set({ confirmBeforeMark: confirmMark.checked }).then(saved));

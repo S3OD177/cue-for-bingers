@@ -84,3 +84,32 @@ details summary::before { content: ""; width: 6px; height: 6px; border-right: 2p
 details[open] summary::before { transform: rotate(45deg); }
 
 @media (max-width: 520px) { .grid2 { grid-template-columns: 1fr; } }
+
+/* ---------- layout fixes ---------- */
+/* each setting is a row, with a hairline between rows */
+.box > .toggle:not(.allsites), .box > .grid2 { margin: 0; padding: 14px 0; border-top: 1px solid var(--line); }
+.box > h2 + .toggle:not(.allsites), .box > h2 + .grid2 { border-top: 0; padding-top: 2px; }
+.box > .toggle:not(.allsites):last-child { padding-bottom: 0; }
+.box h2 { margin-bottom: 10px; }
+.box h3 { margin: 4px 0 6px; padding-top: 16px; border-top: 1px solid var(--line); font-size: 14px; }
+.box h3 + p { margin-top: 0; }
+
+/* switches line up with the first line of their label */
+.toggle { align-items: flex-start; }
+.toggle input[type="checkbox"] { margin-top: 0; }
+.toggle > span { line-height: 1.45; padding-top: 1px; }
+.toggle .muted.small { display: inline-block; margin-top: 3px; line-height: 1.5; }
+
+/* the "all websites" card keeps its own padding */
+.toggle.allsites { margin: 10px 0 12px; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--radius); }
+
+/* dropdown row */
+.grid2 { gap: 14px; }
+.grid2 label { gap: 8px; }
+.grid2 select { width: 100%; }
+
+/* dimmed while auto-tracking is off */
+.dep { transition: opacity .15s; }
+#autotrack.off .dep { opacity: .4; pointer-events: none; }
+
+.foot { text-align: center; margin: 22px 0 0; }
