@@ -69,30 +69,61 @@ h1 { font-size: clamp(40px, 6vw, 60px); line-height: 1.04; letter-spacing: -0.03
 .pop { position: relative; width: 100%; max-width: 380px; background: var(--bg); border: 1px solid var(--line);
   border-radius: 18px; padding: 16px; box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55); font-size: 14px; }
 .pop-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
-.pop-head .brand img { width: 20px; height: 20px; }
-.pop-head .brand { font-size: 16px; gap: 8px; }
-.pop-head .who { color: var(--muted); font-size: 13px; }
-.now { background: var(--panel); border-radius: var(--radius); padding: 12px 14px; }
-.now small { color: var(--muted); font-size: 12px; }
-.now strong { display: block; font-size: 16px; margin: 2px 0; }
-.bar { height: 4px; border-radius: 4px; background: var(--panel-2); margin: 8px 0 10px; overflow: hidden; }
-.bar i { display: block; height: 100%; width: 0; background: var(--ok); border-radius: 4px; animation: fill 6s ease-out 0.4s forwards; }
-@keyframes fill { to { width: 82%; } }
+.pop-head .brand { font-size: 18px; gap: 8px; font-weight: 800; letter-spacing: -0.03em; }
+.pop-head .brand img { width: 20px; height: 20px; border-radius: 6px; }
+.pop-head .brand .for { font-size: 12px; font-weight: 500; letter-spacing: 0; margin-inline-start: -2px; }
+.pop-head .who { color: var(--muted); font-size: 13px; display: inline-flex; align-items: center; gap: 10px; }
+.gear { width: 16px; height: 16px; fill: none; stroke: var(--muted); stroke-width: 1.8; }
+.now { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; }
+.now small { display: block; color: var(--muted); font-size: 12px; }
+.now .np { display: flex; align-items: center; gap: 6px; font-size: 11px; }
+.now strong { display: block; font-size: 15px; margin: 2px 0 1px; }
+.state-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); flex: none;
+  animation: pulse 1.8s ease-out infinite; }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(95, 211, 141, 0.6); } 100% { box-shadow: 0 0 0 6px transparent; } }
+
+/* The mock plays once: progress climbs from 41% to 82%, then the episode is marked watched. */
+@property --p { syntax: "<integer>"; inherits: true; initial-value: 41; }
+.now { --p: 41; animation: climb 5s ease-in-out 0.8s forwards; counter-reset: p var(--p); }
+@keyframes climb { to { --p: 82; } }
+.pct::after { content: counter(p) "%"; }
+.now small.np-sub, .row em.next, .tick { display: grid; }
+.np-sub > span, .next > span, .tick > span { grid-area: 1 / 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.s-done { opacity: 0; color: var(--ok); }
+.s-done u { text-underline-offset: 2px; }
+.bar { height: 4px; border-radius: var(--pill); background: var(--panel-2); margin: 8px 0 10px; overflow: hidden; }
+.bar i { display: block; height: 100%; width: calc(var(--p) * 1%); background: var(--text); border-radius: inherit; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.chip { font-size: 12px; font-weight: 600; border: 1px solid var(--line); border-radius: var(--pill); padding: 3px 10px; }
-.status { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; margin: 10px 2px 12px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; border: 1px solid var(--line);
+  border-radius: var(--pill); padding: 4px 10px; font-variant-numeric: tabular-nums; }
+.chip svg { width: 12px; height: 12px; fill: none; stroke: var(--muted); stroke-width: 2; stroke-linejoin: round; }
+.status { display: flex; align-items: center; justify-content: space-between; color: var(--text); font-size: 12px; margin: 10px 2px 12px; }
+.status .dot { display: inline-block; width: 7px; height: 7px; box-shadow: none; margin-inline-end: 6px; }
+.status u { color: var(--muted); text-underline-offset: 2px; }
 .tabs { display: grid; grid-template-columns: 1fr 1fr; background: var(--panel); border-radius: var(--pill); padding: 3px; margin-bottom: 12px; }
 .tabs span { text-align: center; padding: 6px; border-radius: var(--pill); color: var(--muted); font-weight: 600; font-size: 13px; }
 .tabs .on { background: var(--accent); color: var(--accent-ink); }
-.list-h { display: flex; justify-content: space-between; font-weight: 700; margin: 4px 2px 8px; }
+.list-h { display: flex; justify-content: space-between; font-weight: 700; margin: 12px 2px 8px; }
 .list-h span { color: var(--muted); font-weight: 400; font-size: 13px; }
 .row { display: flex; align-items: center; gap: 10px; background: var(--panel); border-radius: 10px; padding: 8px 10px; margin-bottom: 6px; }
 .poster { width: 30px; height: 42px; border-radius: 5px; flex: none; }
 .row .meta { flex: 1; min-width: 0; }
 .row b { display: block; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .row em { display: block; font-style: normal; color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tick { flex: none; font-size: 12px; font-weight: 700; background: var(--accent); color: var(--accent-ink); border-radius: var(--pill); padding: 4px 10px; }
-.tick.done { background: transparent; color: var(--ok); border: 1px solid var(--ok-line); }
+.tick { flex: none; font-size: 12px; font-weight: 700; background: var(--accent); color: var(--accent-ink); border-radius: var(--pill); padding: 5px 11px; }
+.n2 { opacity: 0; }
+
+/* Watched state, switched on when the climb finishes */
+.s-track, .n1 { animation: hide 0.25s ease 5.9s forwards; }
+.s-done, .n2 { animation: show 0.25s ease 6s forwards; }
+@keyframes hide { to { opacity: 0; } }
+@keyframes show { to { opacity: 1; } }
+.bar i { animation: go-ok 0.3s ease 5.9s forwards; }
+@keyframes go-ok { to { background: var(--ok); } }
+.state-dot { animation: pulse 1.8s ease-out 3, settle 0s linear 5.9s forwards; }
+@keyframes settle { to { box-shadow: none; } }
+.ep-row { animation: flash 1.2s ease 5.9s; }
+@keyframes flash { 0% { background: #1d2a21; } 100% { background: var(--panel); } }
 
 /* Sections */
 section { padding: 56px 0 0; }
@@ -137,4 +168,7 @@ h2 { font-size: clamp(26px, 3.4vw, 34px); letter-spacing: -0.025em; line-height:
   .grid, .steps { grid-template-columns: 1fr; }
   .nav { display: none; }
 }
-@media (prefers-reduced-motion: reduce) { .bar i { animation: none; width: 82%; } }
+@media (prefers-reduced-motion: reduce) {
+  .now { animation: none; --p: 41; }
+  .s-track, .s-done, .n1, .n2, .bar i, .state-dot, .ep-row { animation: none; }
+}
